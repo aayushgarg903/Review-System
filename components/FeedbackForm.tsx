@@ -1,13 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { submitFeedback } from "@/app/actions/feedback";
-import { Turnstile } from "@marsidev/react-turnstile";
+import { Turnstile, TurnstileInstance } from "@marsidev/react-turnstile";
 import Link from "next/link";
 
 export default function FeedbackForm({ slug, siteKey }: { slug: string, siteKey: string }) {
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
   const [errorMessage, setErrorMessage] = useState("");
+  const [tokenStatus, setTokenStatus] = useState<"solved" | "error" | "expired" | null>(null);
+  
+  const turnstileRef = useRef<TurnstileInstance>(null);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -16,7 +19,6 @@ export default function FeedbackForm({ slug, siteKey }: { slug: string, siteKey:
     
     const formData = new FormData(e.currentTarget);
     formData.append("slug", slug);
-    formData.append("consentGiven", "true");
 
     try {
       const res = await submitFeedback(formData);
@@ -24,12 +26,16 @@ export default function FeedbackForm({ slug, siteKey }: { slug: string, siteKey:
       if (res?.error) {
         setStatus("error");
         setErrorMessage(res.error);
+        turnstileRef.current?.reset();
+        setTokenStatus(null);
       } else if (res?.success) {
         setStatus("success");
       }
-    } catch (err) {
+    } catch {
       setStatus("error");
       setErrorMessage("An unexpected error occurred. Please try again.");
+      turnstileRef.current?.reset();
+      setTokenStatus(null);
     }
   }
 
@@ -66,10 +72,13 @@ export default function FeedbackForm({ slug, siteKey }: { slug: string, siteKey:
           name="feedbackText"
           required
           rows={5}
-          className="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none resize-none shadow-sm"
+          className="w-full bg-white text-gray-900 border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none resize-none shadow-sm"
           placeholder="Please share your experience..."
           maxLength={2000}
         />
+        <p className="text-xs text-gray-500 mt-1">
+          Please don&apos;t include medical or other sensitive details.
+        </p>
       </div>
 
       <div className="grid grid-cols-2 gap-4">
@@ -79,7 +88,7 @@ export default function FeedbackForm({ slug, siteKey }: { slug: string, siteKey:
             type="text"
             id="customerName"
             name="customerName"
-            className="w-full border border-gray-300 rounded-lg p-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 shadow-sm"
+            className="w-full bg-white text-gray-900 border border-gray-300 rounded-lg p-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 shadow-sm"
           />
         </div>
         <div>
@@ -88,7 +97,7 @@ export default function FeedbackForm({ slug, siteKey }: { slug: string, siteKey:
             type="tel"
             id="customerPhone"
             name="customerPhone"
-            className="w-full border border-gray-300 rounded-lg p-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 shadow-sm"
+            className="w-full bg-white text-gray-900 border border-gray-300 rounded-lg p-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 shadow-sm"
           />
         </div>
       </div>
@@ -97,21 +106,33 @@ export default function FeedbackForm({ slug, siteKey }: { slug: string, siteKey:
         <input 
           type="checkbox" 
           id="consent" 
+          name="consent"
           required 
           className="mt-0.5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
         />
         <label htmlFor="consent" className="text-xs text-gray-600 leading-relaxed">
-          I consent to my feedback and details being shared securely with management to resolve my issue in accordance with the <Link href="/privacy" className="underline">Privacy Policy</Link>.
+          I consent to my feedback and details being shared securely with management to resolve my issue in accordance with the <Link href="/privacy" target="_blank" rel="noopener noreferrer" className="underline">Privacy Policy</Link>.
         </label>
       </div>
 
       <div className="flex justify-center my-2">
-        <Turnstile siteKey={siteKey || ""} />
+        <Turnstile 
+          ref={turnstileRef}
+          siteKey={siteKey || ""} 
+          onSuccess={() => setTokenStatus("solved")}
+          onError={() => setTokenStatus("error")}
+          onExpire={() => setTokenStatus("expired")}
+        />
+        {(tokenStatus === "error" || tokenStatus === "expired") && (
+          <p className="text-red-500 text-xs mt-2 text-center">
+            Security check failed to load. Please refresh the page.
+          </p>
+        )}
       </div>
 
       <button
         type="submit"
-        disabled={status === "loading"}
+        disabled={status === "loading" || tokenStatus !== "solved"}
         className="w-full min-h-[48px] bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-medium rounded-lg px-4 py-3 transition-colors shadow-sm flex justify-center items-center"
       >
         {status === "loading" ? (

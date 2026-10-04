@@ -10,5 +10,7 @@ export function getServiceRoleClient() {
   }
 
   // Using service role key bypasses RLS and should ONLY be used on the server.
-  return createClient(supabaseUrl, serviceRoleKey);
+  return createClient(supabaseUrl, serviceRoleKey, {
+    auth: { persistSession: false, autoRefreshToken: false }
+  });
 }

@@ -20,7 +20,16 @@ This is a multi-tenant web application designed for local businesses to seamless
    cp .env.example .env.local
    ```
 
-3. Start the development server:
+3. Supabase Setup:
+   - Create a new project in Supabase.
+   - Go to the SQL Editor and run the contents of `supabase/schema.sql` to build the tables and RLS policies.
+   - (Optional) Uncomment and run the `pg_cron` schedule block at the bottom of the schema file to enable automatic deletion of old feedback.
+
+4. Cloudflare Turnstile Test Keys (for local development):
+   - Site Key: `1x00000000000000000000AA`
+   - Secret Key: `1x0000000000000000000000000000000AA`
+
+5. Start the development server:
    ```bash
    npm run dev
    ```
@@ -28,11 +37,11 @@ This is a multi-tenant web application designed for local businesses to seamless
 ## Environment Variables
 Ensure the following variables are configured in `.env.local`:
 - `NEXT_PUBLIC_SUPABASE_URL`: Your Supabase project URL
-- `NEXT_PUBLIC_SUPABASE_ANON_KEY`: Your Supabase public anon key
 - `SUPABASE_SERVICE_ROLE_KEY`: Supabase service role key (Never expose this to the browser)
 - `TURNSTILE_SITE_KEY`: Cloudflare Turnstile public site key
 - `TURNSTILE_SECRET_KEY`: Cloudflare Turnstile secret key (for server verification)
 - `RESEND_API_KEY`: API key for Resend email notifications
+- `EMAIL_FROM`: The sender email address. Must be an address on a domain you have verified in Resend.
 
 ## Architecture Note
 This project strictly enforces that **anonymous visitors never write to the database directly from the browser**. All writes are routed through Next.js server actions or API routes, verified by Turnstile, and executed using the Supabase Service Role key to bypass RLS for inserts, while maintaining strict isolation for owner reads.

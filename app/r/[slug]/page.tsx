@@ -1,6 +1,6 @@
 import { getServiceRoleClient } from "@/lib/supabase-server";
+import { isClientActive } from "@/lib/client-status";
 import Link from "next/link";
-import { notFound } from "next/navigation";
 
 // Required for Next.js to dynamically render this route
 export const dynamic = 'force-dynamic';
@@ -11,11 +11,11 @@ export default async function FeedbackPage({ params }: { params: { slug: string 
   // Look up client by slug
   const { data: client, error } = await supabase
     .from("clients")
-    .select("business_name, logo_url, google_review_link, status")
+    .select("id, business_name, logo_url, google_review_link, status, trial_ends_at, paid_until")
     .eq("slug", params.slug)
     .single();
 
-  if (error || !client || client.status === "lapsed" || client.status === "paused") {
+  if (error || !isClientActive(client)) {
     return (
       <main className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
         <p className="text-gray-500 text-center text-sm">
@@ -24,6 +24,12 @@ export default async function FeedbackPage({ params }: { params: { slug: string 
       </main>
     );
   }
+
+  // Analytics: Record qr_scan securely
+  await supabase.from("analytics_events").insert({
+    client_id: client.id,
+    event_type: "qr_scan"
+  });
 
   return (
     <main className="min-h-screen flex flex-col items-center p-6 bg-gray-50">
@@ -48,9 +54,7 @@ export default async function FeedbackPage({ params }: { params: { slug: string 
         <div className="flex flex-col w-full gap-4 mt-2">
           {/* Identical styling for both buttons to prevent bias */}
           <a 
-            href={client.google_review_link}
-            target="_blank"
-            rel="noopener noreferrer"
+            href={`/r/${params.slug}/go`}
             className="w-full min-h-[48px] flex items-center justify-center bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg px-4 py-3 transition-colors text-center shadow-sm"
           >
             Leave a Google review
@@ -58,6 +62,7 @@ export default async function FeedbackPage({ params }: { params: { slug: string 
           
           <Link 
             href={`/r/${params.slug}/feedback`}
+            prefetch={false}
             className="w-full min-h-[48px] flex items-center justify-center bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg px-4 py-3 transition-colors text-center shadow-sm"
           >
             Send a private message

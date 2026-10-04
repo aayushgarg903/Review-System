@@ -1,4 +1,5 @@
 import { getServiceRoleClient } from "@/lib/supabase-server";
+import { isClientActive } from "@/lib/client-status";
 import FeedbackForm from "@/components/FeedbackForm";
 
 // Required for dynamic routing
@@ -10,11 +11,11 @@ export default async function PrivateFeedbackPage({ params }: { params: { slug: 
   // Look up client by slug
   const { data: client, error } = await supabase
     .from("clients")
-    .select("id, business_name, status, logo_url")
+    .select("id, business_name, status, logo_url, trial_ends_at, paid_until")
     .eq("slug", params.slug)
     .single();
 
-  if (error || !client || client.status === "lapsed" || client.status === "paused") {
+  if (error || !isClientActive(client)) {
     return (
       <main className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
         <p className="text-gray-500 text-center text-sm">
@@ -24,11 +25,11 @@ export default async function PrivateFeedbackPage({ params }: { params: { slug: 
     );
   }
 
-  // Fire and forget analytics event: someone opened the private form
-  supabase.from("analytics_events").insert({
+  // Record analytics event: someone opened the private form
+  await supabase.from("analytics_events").insert({
     client_id: client.id,
     event_type: "private_form_open"
-  }).then();
+  });
 
   return (
     <main className="min-h-screen flex flex-col items-center p-6 bg-gray-50">

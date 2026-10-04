@@ -2,6 +2,10 @@
 -- Design: anonymous visitors NEVER touch the database directly.
 -- The Next.js server route verifies Cloudflare Turnstile, then writes
 -- using the service role key (kept server-side only, never NEXT_PUBLIC_).
+-- NOTE: RLS (Row Level Security) is disabled on purpose for anonymous users 
+-- because all database access goes through the service_role key in 
+-- server-side Next.js code, and anonymous visitors only interact via 
+-- Turnstile-protected server actions.
 
 create extension if not exists pgcrypto;
 
@@ -99,6 +103,7 @@ create policy "owner reads own analytics" on analytics_events
 
 -- ---------- retention: delete expired feedback ----------
 -- Schedule daily with pg_cron (Supabase: Database > Extensions > pg_cron).
--- Run this once in the SQL editor:
-select cron.schedule('purge-feedback', '0 3 * * *',
-  $$ delete from private_feedback where delete_after < now() $$);
+-- To install and run a daily cleanup of rows older than 30 days, an admin would run this once in the SQL editor:
+-- create extension if not exists pg_cron;
+-- select cron.schedule('purge-feedback-30-days', '0 3 * * *',
+--   $$ delete from private_feedback where created_at < now() - interval '30 days' $$);

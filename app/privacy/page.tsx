@@ -1,3 +1,5 @@
+import { SITE_CONFIG } from "@/lib/site-config";
+
 export default function PrivacyPage() {
   return (
     <main className="min-h-screen bg-gray-50 p-6 flex justify-center">
@@ -7,7 +9,7 @@ export default function PrivacyPage() {
         <div className="space-y-6 text-sm text-gray-700 leading-relaxed">
           <section>
             <h2 className="text-lg font-medium text-gray-900 mb-2">Operator</h2>
-            <p>This service is operated by [BUSINESS NAME]. You can contact us at <a href="mailto:[CONTACT EMAIL]" className="text-blue-600 hover:underline">[CONTACT EMAIL]</a>.</p>
+            <p>This service is operated by {SITE_CONFIG.operatorName}. You can contact us at <a href={`mailto:${SITE_CONFIG.contactEmail}`} className="text-blue-600 hover:underline">{SITE_CONFIG.contactEmail}</a>.</p>
           </section>
 
           <section>

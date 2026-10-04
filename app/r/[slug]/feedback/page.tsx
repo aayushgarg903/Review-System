@@ -37,11 +37,14 @@ export default async function PrivateFeedbackPage({ params }: { params: Promise<
       <div className="w-full max-w-[360px] bg-white shadow-sm rounded-xl p-6 flex flex-col items-center gap-6 mt-6">
         
         {client.logo_url && (
-          <img 
-            src={client.logo_url} 
-            alt={`${client.business_name} logo`} 
-            className="w-16 h-16 object-contain rounded-full bg-gray-100"
-          />
+          <>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img 
+              src={client.logo_url} 
+              alt={`${client.business_name} logo`} 
+              className="w-16 h-16 object-contain rounded-full bg-gray-100"
+            />
+          </>
         )}
         
         <div className="text-center w-full">

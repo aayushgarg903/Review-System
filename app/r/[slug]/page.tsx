@@ -37,11 +37,14 @@ export default async function FeedbackPage({ params }: { params: Promise<{ slug:
       <div className="w-full max-w-[360px] bg-white shadow-sm rounded-xl p-6 flex flex-col items-center gap-6 mt-10">
         
         {client.logo_url && (
-          <img 
-            src={client.logo_url} 
-            alt={`${client.business_name} logo`} 
-            className="w-20 h-20 object-contain rounded-full bg-gray-100"
-          />
+          <>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img 
+              src={client.logo_url} 
+              alt={`${client.business_name} logo`} 
+              className="w-20 h-20 object-contain rounded-full bg-gray-100"
+            />
+          </>
         )}
         
         <h1 className="text-2xl font-semibold text-gray-900 text-center">

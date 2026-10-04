@@ -5,14 +5,15 @@ import FeedbackForm from "@/components/FeedbackForm";
 // Required for dynamic routing
 export const dynamic = 'force-dynamic';
 
-export default async function PrivateFeedbackPage({ params }: { params: { slug: string } }) {
+export default async function PrivateFeedbackPage({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params;
   const supabase = getServiceRoleClient();
   
   // Look up client by slug
   const { data: client, error } = await supabase
     .from("clients")
     .select("id, business_name, status, logo_url, trial_ends_at, paid_until")
-    .eq("slug", params.slug)
+    .eq("slug", slug)
     .single();
 
   if (error || !isClientActive(client)) {
@@ -52,7 +53,7 @@ export default async function PrivateFeedbackPage({ params }: { params: { slug: 
           </p>
         </div>
 
-        <FeedbackForm slug={params.slug} siteKey={process.env.TURNSTILE_SITE_KEY || ""} />
+        <FeedbackForm slug={slug} siteKey={process.env.TURNSTILE_SITE_KEY || ""} />
 
       </div>
     </main>

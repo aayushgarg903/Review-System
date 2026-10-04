@@ -5,14 +5,15 @@ import Link from "next/link";
 // Required for Next.js to dynamically render this route
 export const dynamic = 'force-dynamic';
 
-export default async function FeedbackPage({ params }: { params: { slug: string } }) {
+export default async function FeedbackPage({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params;
   const supabase = getServiceRoleClient();
   
   // Look up client by slug
   const { data: client, error } = await supabase
     .from("clients")
     .select("id, business_name, logo_url, google_review_link, status, trial_ends_at, paid_until")
-    .eq("slug", params.slug)
+    .eq("slug", slug)
     .single();
 
   if (error || !isClientActive(client)) {
@@ -54,14 +55,14 @@ export default async function FeedbackPage({ params }: { params: { slug: string 
         <div className="flex flex-col w-full gap-4 mt-2">
           {/* Identical styling for both buttons to prevent bias */}
           <a 
-            href={`/r/${params.slug}/go`}
+            href={`/r/${slug}/go`}
             className="w-full min-h-[48px] flex items-center justify-center bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg px-4 py-3 transition-colors text-center shadow-sm"
           >
             Leave a Google review
           </a>
           
           <Link 
-            href={`/r/${params.slug}/feedback`}
+            href={`/r/${slug}/feedback`}
             prefetch={false}
             className="w-full min-h-[48px] flex items-center justify-center bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg px-4 py-3 transition-colors text-center shadow-sm"
           >

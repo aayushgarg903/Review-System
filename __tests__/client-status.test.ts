@@ -7,9 +7,19 @@ describe('isClientActive', () => {
     expect(isClientActive(undefined)).toBe(false);
   });
 
-  it('returns false for unrecognized or empty status', () => {
-    expect(isClientActive({ status: 'lapsed' })).toBe(false);
-    expect(isClientActive({ status: 'paused' })).toBe(false);
+  describe('when status is lapsed', () => {
+    it('returns false', () => {
+      expect(isClientActive({ status: 'lapsed' })).toBe(false);
+    });
+  });
+
+  describe('when status is paused', () => {
+    it('returns false', () => {
+      expect(isClientActive({ status: 'paused' })).toBe(false);
+    });
+  });
+
+  it('returns false for empty or null status', () => {
     expect(isClientActive({ status: '' })).toBe(false);
     expect(isClientActive({ status: null })).toBe(false);
   });

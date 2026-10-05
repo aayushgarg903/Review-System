@@ -41,6 +41,7 @@ create table private_feedback (
     delete_after   timestamptz not null default (now() + interval '18 months'),
     email_sent     boolean not null default false,
     consent_version varchar(20) not null default 'v1',
+    ip_hash        varchar(64),
     created_at     timestamptz not null default now()
 );
 
@@ -49,7 +50,7 @@ create table analytics_events (
     id          uuid primary key default gen_random_uuid(),
     client_id   uuid not null references clients(id) on delete cascade,
     event_type  varchar(30) not null
-                check (event_type in ('qr_scan','google_click',
+                check (event_type in ('landing_page_view','google_click',
                                       'private_form_open','private_message_sent')),
     created_at  timestamptz not null default now()
 );
@@ -106,3 +107,59 @@ create policy "owner reads own analytics" on analytics_events
 -- create extension if not exists pg_cron;
 -- select cron.schedule('purge-feedback', '0 3 * * *',
 --   $$ delete from private_feedback where delete_after < now() $$);
+-- select cron.schedule('purge-rate-limits', '0 3 * * *',
+--   $$ delete from rate_limits where last_submission < now() - interval '1 day' $$);
+
+-- ---------- atomic rate limiting & insert ----------
+CREATE TABLE IF NOT EXISTS rate_limits (
+    ip_hash VARCHAR(64) PRIMARY KEY,
+    submissions INT NOT NULL DEFAULT 1,
+    last_submission TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE OR REPLACE FUNCTION submit_private_feedback_with_rate_limit(
+    p_client_id UUID,
+    p_customer_name VARCHAR,
+    p_customer_phone VARCHAR,
+    p_feedback_text TEXT,
+    p_consent_given BOOLEAN,
+    p_ip_hash VARCHAR(64)
+) RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+    v_inserted_id UUID;
+    v_submissions INT;
+    v_last_submission TIMESTAMPTZ;
+BEGIN
+    PERFORM pg_advisory_xact_lock(hashtext(p_ip_hash));
+
+    SELECT submissions, last_submission INTO v_submissions, v_last_submission 
+    FROM rate_limits 
+    WHERE ip_hash = p_ip_hash 
+    FOR UPDATE;
+
+    IF FOUND THEN
+        IF v_last_submission < now() - interval '10 minutes' THEN
+            v_submissions := 1;
+        ELSE
+            v_submissions := v_submissions + 1;
+        END IF;
+
+        IF v_submissions > 5 THEN
+            RETURN jsonb_build_object('success', false, 'error', 'Rate limit exceeded');
+        END IF;
+
+        UPDATE rate_limits SET submissions = v_submissions, last_submission = now() WHERE ip_hash = p_ip_hash;
+    ELSE
+        INSERT INTO rate_limits (ip_hash, submissions) VALUES (p_ip_hash, 1);
+    END IF;
+
+    INSERT INTO private_feedback (client_id, customer_name, customer_phone, feedback_text, consent_given)
+    VALUES (p_client_id, p_customer_name, p_customer_phone, p_feedback_text, p_consent_given)
+    RETURNING id INTO v_inserted_id;
+
+    RETURN jsonb_build_object('success', true, 'id', v_inserted_id);
+END;
+$$;

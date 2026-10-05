@@ -43,8 +43,12 @@ Ensure the following variables are configured in `.env.local`:
 - `RESEND_API_KEY`: API key for Resend email notifications
 - `EMAIL_FROM`: The sender email address. Must be an address on a domain you have verified in Resend.
 
-## Architecture Note
+## Architecture Notes
 This project strictly enforces that **anonymous visitors never write to the database directly from the browser**. All writes are routed through Next.js server actions or API routes, verified by Turnstile, and executed using the Supabase Service Role key to bypass RLS for inserts, while maintaining strict isolation for owner reads.
+
+**Security:**
+- Rate limiting is implemented by hashing the `x-forwarded-for` IP header (`ip_hash`) to prevent single-actor quota exhaustion for a business.
+- All real data is scoped tightly using Postgres RLS and verified through Supabase Auth for dashboard access.
 
 ## Next.js 16 Notes
 - `params` in Page and Route handlers are now Promises and must be `await`ed before accessing properties (like `params.slug`).

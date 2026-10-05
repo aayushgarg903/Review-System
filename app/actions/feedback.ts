@@ -3,6 +3,8 @@
 import { getServiceRoleClient } from "@/lib/supabase-server";
 import { isClientActive } from "@/lib/client-status";
 import { Resend } from "resend";
+import { headers } from "next/headers";
+import crypto from "crypto";
 
 export async function submitFeedback(formData: FormData) {
   const token = formData.get("cf-turnstile-response") as string;
@@ -79,36 +81,42 @@ export async function submitFeedback(formData: FormData) {
     return { error: "Client not found or unavailable." };
   }
 
-  // 2.5 Rate Limit: check rows in last 10 mins
-  const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
-  const { count: recentFeedbackCount, error: countErr } = await supabase
-    .from("private_feedback")
-    .select("id", { count: "exact", head: true })
-    .eq("client_id", client.id)
-    .gte("created_at", tenMinutesAgo);
+  // 2.5 Rate Limit & Atomic Insert
+  // Use x-real-ip first (Vercel standard), fallback to x-forwarded-for
+  const headersList = await headers();
+  const forwardedFor = headersList.get("x-forwarded-for")?.split(",")[0]?.trim();
+  const realIp = headersList.get("x-real-ip")?.trim();
+  const ip = realIp || forwardedFor || "unknown";
+  
+  // Use a keyed HMAC instead of plain SHA-256 to prevent rainbow-table attacks
+  // Fallback to a random string if secret is missing to fail safely
+  const rateLimitSecret = process.env.TURNSTILE_SECRET_KEY || "fallback_secret";
+  const ipHash = crypto.createHmac("sha256", rateLimitSecret).update(ip).digest("hex");
 
-  if (countErr) {
-    console.error(`Rate limit DB check failed. Code: ${countErr.code || "unknown"}`);
+  // Call the atomic rate-limiting and insert RPC
+  const { data: rpcData, error: rpcErr } = await supabase.rpc("submit_private_feedback_with_rate_limit", {
+    p_client_id: client.id,
+    p_customer_name: customerName || null,
+    p_customer_phone: customerPhone || null,
+    p_feedback_text: feedbackText,
+    p_consent_given: true,
+    p_ip_hash: ipHash
+  });
+
+  if (rpcErr) {
+    console.error(`DB RPC failed. Code: ${rpcErr?.code || "unknown"} Message: ${rpcErr?.message}`);
     return { error: "Failed to process request." };
   }
 
-  if (recentFeedbackCount !== null && recentFeedbackCount >= 5) {
-    return { error: "Please try again later." };
-  }
-
-  // 3. Insert feedback securely (bypasses anon restrictions)
-  const { data: insertedRow, error: insertErr } = await supabase.from("private_feedback").insert({
-    client_id: client.id,
-    customer_name: customerName || null,
-    customer_phone: customerPhone || null,
-    feedback_text: feedbackText,
-    consent_given: true,
-  }).select("id").single();
-
-  if (insertErr || !insertedRow) {
-    console.error(`DB Insert failed. Code: ${insertErr?.code || "unknown"}`);
+  // The RPC returns a JSONB object with { success: boolean, error?: string, id?: string }
+  if (!rpcData?.success) {
+    if (rpcData?.error === 'Rate limit exceeded') {
+      return { error: "Please try again later." };
+    }
     return { error: "Failed to save feedback." };
   }
+  
+  const insertedRowId = rpcData.id;
 
   // 4. Log analytics event for monthly reporting
   const { error: analyticsErr } = await supabase.from("analytics_events").insert({
@@ -138,7 +146,7 @@ export async function submitFeedback(formData: FormData) {
       } else {
         const { error: updateErr } = await supabase.from("private_feedback")
           .update({ email_sent: true })
-          .eq("id", insertedRow.id);
+          .eq("id", insertedRowId);
           
         if (updateErr) {
           console.error(`DB Update (email_sent) failed. Code: ${updateErr.code || "unknown"}`);

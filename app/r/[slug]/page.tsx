@@ -29,7 +29,7 @@ export default async function FeedbackPage({ params }: { params: Promise<{ slug:
   // Analytics: Record qr_scan securely
   await supabase.from("analytics_events").insert({
     client_id: client.id,
-    event_type: "qr_scan"
+    event_type: "landing_page_view"
   });
 
   return (

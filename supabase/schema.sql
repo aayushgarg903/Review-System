@@ -102,12 +102,12 @@ create policy "owner reads own analytics" on analytics_events
 
 -- ---------- retention: delete expired feedback ----------
 -- STEP 1: Enable pg_cron (Database > Extensions).
--- STEP 2: Run once in the SQL editor:
-create extension if not exists pg_cron;
-select cron.schedule('purge-feedback', '0 3 * * *',
-  $$ delete from private_feedback where delete_after < now() $$);
-select cron.schedule('purge-rate-limits', '0 3 * * *',
-  $$ delete from rate_limits where last_submission < now() - interval '1 day' $$);
+-- STEP 2: Run the statements below once in the SQL editor.
+-- create extension if not exists pg_cron;
+-- select cron.schedule('purge-feedback', '0 3 * * *',
+--   $$ delete from private_feedback where delete_after < now() $$);
+-- select cron.schedule('purge-rate-limits', '0 3 * * *',
+--   $$ delete from rate_limits where last_submission < now() - interval '1 day' $$);
 
 -- ---------- atomic rate limiting & insert ----------
 CREATE TABLE IF NOT EXISTS rate_limits (

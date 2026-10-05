@@ -23,7 +23,10 @@ This is a multi-tenant web application designed for local businesses to seamless
 3. Supabase Setup:
    - Create a new project in Supabase.
    - Go to the SQL Editor and run the contents of `supabase/schema.sql` to build the tables and RLS policies.
-   - REQUIRED before launch: the privacy page promises 18-month deletion. Uncomment and run the `pg_cron` schedule block at the bottom of the schema file to enable automatic deletion of old feedback.
+   - REQUIRED before launch: the privacy page promises 18-month deletion. Enable `pg_cron` (Database > Extensions) and run the `pg_cron` schedule block at the bottom of the schema file to enable automatic deletion of old feedback and rate limits.
+
+## Migrations
+If you are updating an existing database, run the files inside `supabase/migrations/` in numerical order, once, in the Supabase SQL editor.
 
 4. Cloudflare Turnstile Test Keys (for local development):
    - Site Key: `1x00000000000000000000AA`

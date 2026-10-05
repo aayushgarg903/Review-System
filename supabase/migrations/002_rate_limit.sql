@@ -1,14 +1,17 @@
+DROP FUNCTION IF EXISTS public.submit_private_feedback_with_rate_limit(UUID, VARCHAR, BOOLEAN, VARCHAR, VARCHAR, TEXT);
+DROP FUNCTION IF EXISTS public.submit_private_feedback_with_rate_limit(UUID, VARCHAR, VARCHAR, TEXT, BOOLEAN, VARCHAR);
+DROP TABLE IF EXISTS public.rate_limits;
+
 CREATE TABLE IF NOT EXISTS rate_limits (
-    client_ip_hash VARCHAR(64) PRIMARY KEY,
+    client_id UUID NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+    ip_hash VARCHAR(64) NOT NULL,
     submissions INT NOT NULL DEFAULT 1,
-    last_submission TIMESTAMPTZ NOT NULL DEFAULT now()
+    last_submission TIMESTAMPTZ NOT NULL DEFAULT now(),
+    PRIMARY KEY (client_id, ip_hash)
 );
 
 ALTER TABLE rate_limits ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON rate_limits FROM anon, authenticated;
-
--- Drop the old column from private_feedback
-ALTER TABLE private_feedback DROP COLUMN IF EXISTS ip_hash;
 
 CREATE OR REPLACE FUNCTION submit_private_feedback_with_rate_limit(
     p_client_id UUID,
@@ -16,7 +19,7 @@ CREATE OR REPLACE FUNCTION submit_private_feedback_with_rate_limit(
     p_customer_phone VARCHAR,
     p_feedback_text TEXT,
     p_consent_given BOOLEAN,
-    p_client_ip_hash VARCHAR(64)
+    p_ip_hash VARCHAR(64)
 ) RETURNS jsonb
 LANGUAGE plpgsql
 SECURITY DEFINER SET search_path = public
@@ -26,18 +29,15 @@ DECLARE
     v_submissions INT;
     v_last_submission TIMESTAMPTZ;
 BEGIN
-    -- Advisory lock to prevent race conditions during rate limit check
-    PERFORM pg_advisory_xact_lock(hashtext(p_client_ip_hash));
+    PERFORM pg_advisory_xact_lock(hashtext(p_client_id::text || p_ip_hash));
 
-    -- Check rate limit
     SELECT submissions, last_submission INTO v_submissions, v_last_submission 
     FROM rate_limits 
-    WHERE client_ip_hash = p_client_ip_hash 
+    WHERE client_id = p_client_id AND ip_hash = p_ip_hash 
     FOR UPDATE;
 
     IF FOUND THEN
         IF v_last_submission < now() - interval '10 minutes' THEN
-            -- Reset after 10 minutes
             v_submissions := 1;
         ELSE
             v_submissions := v_submissions + 1;
@@ -47,12 +47,11 @@ BEGIN
             RETURN jsonb_build_object('success', false, 'error', 'Rate limit exceeded');
         END IF;
 
-        UPDATE rate_limits SET submissions = v_submissions, last_submission = now() WHERE client_ip_hash = p_client_ip_hash;
+        UPDATE rate_limits SET submissions = v_submissions, last_submission = now() WHERE client_id = p_client_id AND ip_hash = p_ip_hash;
     ELSE
-        INSERT INTO rate_limits (client_ip_hash, submissions) VALUES (p_client_ip_hash, 1);
+        INSERT INTO rate_limits (client_id, ip_hash, submissions) VALUES (p_client_id, p_ip_hash, 1);
     END IF;
 
-    -- Insert feedback (no IP stored here!)
     INSERT INTO private_feedback (client_id, customer_name, customer_phone, feedback_text, consent_given)
     VALUES (p_client_id, p_customer_name, p_customer_phone, p_feedback_text, p_consent_given)
     RETURNING id INTO v_inserted_id;

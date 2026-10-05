@@ -4,9 +4,9 @@
 **Context/Problem:** The rate limiting on the feedback submission route was susceptible to race conditions and business-wide quota exhaustion (limiting per business ID rather than by IP), exposing the business to denial of service by a single malicious user. Additionally, analytics events like "qr_scan" were improperly named as the user is actually just viewing a landing page.
 
 **Decision:** 
-1. Moved rate limiting to a dedicated `rate_limits` table that uses a tenant-scoped HMAC-SHA256 hash (combining `client_id` and `x-real-ip` / `x-forwarded-for`).
-2. IP hashes are stored only in the dedicated `rate_limits` table and are automatically purged after one day. They are not stored with private customer feedback.
+1. Moved rate limiting to a dedicated `rate_limits` table that uses a composite primary key: `client_id` + `ip_hash`. The IP hash is generated using an HMAC-SHA256 hash of the `x-real-ip` (fallback to `x-forwarded-for`), keyed with `TURNSTILE_SECRET_KEY`.
+2. IP hashes are stored only in the dedicated `rate_limits` table and are automatically purged after one day via pg_cron. They are never stored with private customer feedback.
 3. Renamed `qr_scan` analytics events to `landing_page_view` for clearer tracking.
 
 **Reasoning (The 'Why'):** 
-Rate limiting by business ID meant one abuser could exhaust the quota for legitimate customers of that business. Using a tenant-scoped HMAC (combining `client_id` and IP) prevents single-actor exhaustion per business without affecting users across different businesses. Not storing IP data directly in the `private_feedback` table maintains customer privacy, while HMAC prevents offline enumeration attacks. Renaming the analytics events ensures our data nomenclature accurately reflects user behavior.
+Rate limiting by business ID meant one abuser could exhaust the quota for legitimate customers of that business. By tracking rate limits using both `client_id` and the HMAC of the user's IP, we prevent single-actor exhaustion per business without affecting users across different businesses. Storing `client_id` explicitly in the database ensures perfect tenant isolation and indexability. Not storing IP data directly in the `private_feedback` table maintains customer privacy, while HMAC prevents offline enumeration attacks. Renaming the analytics events ensures our data nomenclature accurately reflects user behavior.

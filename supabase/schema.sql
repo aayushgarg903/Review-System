@@ -111,9 +111,11 @@ select cron.schedule('purge-rate-limits', '0 3 * * *',
 
 -- ---------- atomic rate limiting & insert ----------
 CREATE TABLE IF NOT EXISTS rate_limits (
-    client_ip_hash VARCHAR(64) PRIMARY KEY,
+    client_id UUID NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+    ip_hash VARCHAR(64) NOT NULL,
     submissions INT NOT NULL DEFAULT 1,
-    last_submission TIMESTAMPTZ NOT NULL DEFAULT now()
+    last_submission TIMESTAMPTZ NOT NULL DEFAULT now(),
+    PRIMARY KEY (client_id, ip_hash)
 );
 
 ALTER TABLE rate_limits ENABLE ROW LEVEL SECURITY;
@@ -125,7 +127,7 @@ CREATE OR REPLACE FUNCTION submit_private_feedback_with_rate_limit(
     p_customer_phone VARCHAR,
     p_feedback_text TEXT,
     p_consent_given BOOLEAN,
-    p_client_ip_hash VARCHAR(64)
+    p_ip_hash VARCHAR(64)
 ) RETURNS jsonb
 LANGUAGE plpgsql
 SECURITY DEFINER SET search_path = public
@@ -135,11 +137,11 @@ DECLARE
     v_submissions INT;
     v_last_submission TIMESTAMPTZ;
 BEGIN
-    PERFORM pg_advisory_xact_lock(hashtext(p_client_ip_hash));
+    PERFORM pg_advisory_xact_lock(hashtext(p_client_id::text || p_ip_hash));
 
     SELECT submissions, last_submission INTO v_submissions, v_last_submission 
     FROM rate_limits 
-    WHERE client_ip_hash = p_client_ip_hash 
+    WHERE client_id = p_client_id AND ip_hash = p_ip_hash 
     FOR UPDATE;
 
     IF FOUND THEN
@@ -153,9 +155,9 @@ BEGIN
             RETURN jsonb_build_object('success', false, 'error', 'Rate limit exceeded');
         END IF;
 
-        UPDATE rate_limits SET submissions = v_submissions, last_submission = now() WHERE client_ip_hash = p_client_ip_hash;
+        UPDATE rate_limits SET submissions = v_submissions, last_submission = now() WHERE client_id = p_client_id AND ip_hash = p_ip_hash;
     ELSE
-        INSERT INTO rate_limits (client_ip_hash, submissions) VALUES (p_client_ip_hash, 1);
+        INSERT INTO rate_limits (client_id, ip_hash, submissions) VALUES (p_client_id, p_ip_hash, 1);
     END IF;
 
     INSERT INTO private_feedback (client_id, customer_name, customer_phone, feedback_text, consent_given)

@@ -44,7 +44,7 @@ describe('Database Security & RLS Guarantees', () => {
       p_customer_phone: '1234567890',
       p_feedback_text: 'Hack attempt',
       p_consent_given: true,
-      p_client_ip_hash: 'anon-test-hash'
+      p_ip_hash: 'anon-test-hash'
     });
     expect(error).toBeDefined();
     expect(error?.code).toBe('42501'); // insufficient_privilege
@@ -72,7 +72,7 @@ describe('Rate Limiting & Concurrency', () => {
         p_customer_phone: '1234567890',
         p_feedback_text: 'Concurrent test',
         p_consent_given: true,
-        p_client_ip_hash: testIpHash
+        p_ip_hash: testIpHash
       })
     );
 

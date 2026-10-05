@@ -47,7 +47,7 @@ Ensure the following variables are configured in `.env.local`:
 This project strictly enforces that **anonymous visitors never write to the database directly from the browser**. All writes are routed through Next.js server actions or API routes, verified by Turnstile, and executed using the Supabase Service Role key to bypass RLS for inserts, while maintaining strict isolation for owner reads.
 
 **Security:**
-- Rate limiting is implemented by generating an HMAC-SHA256 hash of the `client_id` combined with the `x-real-ip` (fallback to `x-forwarded-for`). This ensures tenant-scoped limits and prevents IP data from being stored directly.
+- Rate limiting is implemented by storing requests in a dedicated `rate_limits` table with a composite primary key (`client_id` + `ip_hash`). The `ip_hash` is generated using an HMAC-SHA256 hash of the `x-real-ip` keyed with the `TURNSTILE_SECRET_KEY`. This ensures tenant-scoped limits and prevents IP data from being stored directly or leaked in rainbow-table attacks.
 - All real data is scoped tightly using Postgres RLS and verified through Supabase Auth for dashboard access.
 
 ## Next.js 16 Notes

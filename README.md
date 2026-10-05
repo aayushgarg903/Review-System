@@ -56,3 +56,7 @@ This project strictly enforces that **anonymous visitors never write to the data
 ## Next.js 16 Notes
 - `params` in Page and Route handlers are now Promises and must be `await`ed before accessing properties (like `params.slug`).
 - ESLint configuration now uses the flat config format (`eslint.config.mjs`).
+
+## Testing
+**CRITICAL:** You must use a dedicated, separate Supabase project for running security tests. NEVER run the test suite against your production database, as tests may wipe data or alter schemas.
+Provide your test project credentials in `.env.local` using the `TEST_SUPABASE_URL`, `TEST_SUPABASE_ANON_KEY`, and `TEST_SUPABASE_SERVICE_ROLE_KEY` variables.

@@ -26,23 +26,28 @@ export default async function DashboardPage() {
     )
   }
 
-  // Fetch real stats
+  // Fetch real stats (last 30 days)
+  const thirtyDaysAgo = new Date()
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+  const thirtyDaysAgoIso = thirtyDaysAgo.toISOString()
+
   const [
     { count: googleClicks },
     { count: landingViews },
     { count: privateMessages }
   ] = await Promise.all([
-    supabase.from('analytics_events').select('*', { count: 'exact', head: true }).eq('client_id', client.id).eq('event_type', 'google_click'),
-    supabase.from('analytics_events').select('*', { count: 'exact', head: true }).eq('client_id', client.id).eq('event_type', 'landing_page_view'),
-    supabase.from('analytics_events').select('*', { count: 'exact', head: true }).eq('client_id', client.id).eq('event_type', 'private_message_sent'),
+    supabase.from('analytics_events').select('id', { count: 'exact', head: true }).eq('client_id', client.id).eq('event_type', 'google_click').gte('created_at', thirtyDaysAgoIso),
+    supabase.from('analytics_events').select('id', { count: 'exact', head: true }).eq('client_id', client.id).eq('event_type', 'landing_page_view').gte('created_at', thirtyDaysAgoIso),
+    supabase.from('analytics_events').select('id', { count: 'exact', head: true }).eq('client_id', client.id).eq('event_type', 'private_message_sent').gte('created_at', thirtyDaysAgoIso),
   ])
 
   // Fetch feedback messages
   const { data: feedbackList } = await supabase
     .from('private_feedback')
-    .select('*')
+    .select('id, customer_name, customer_phone, created_at, resolved_at, feedback_text, owner_note, status')
     .eq('client_id', client.id)
     .order('created_at', { ascending: false })
+    .limit(50)
 
   // Server Actions
   async function logout() {
@@ -56,13 +61,22 @@ export default async function DashboardPage() {
     'use server'
     const id = formData.get('id') as string
     const status = formData.get('status') as string
+
+    // Validate UUID
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(id)) return;
+
+    // Validate status
+    if (status !== 'unresolved' && status !== 'in_progress' && status !== 'resolved') return;
+
     const supabaseAction = await createClient()
     
     // Auth user check is technically handled by RLS, but verifying session is good
     const { data: { user } } = await supabaseAction.auth.getUser()
     if (!user) return
 
-    const updateData: any = { status }
+    type UpdateData = { status: string; resolved_at?: string | null }
+    const updateData: UpdateData = { status }
     if (status === 'resolved') {
       updateData.resolved_at = new Date().toISOString()
     } else {
@@ -77,6 +91,11 @@ export default async function DashboardPage() {
     'use server'
     const id = formData.get('id') as string
     const owner_note = formData.get('owner_note') as string
+
+    // Validate UUID
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(id)) return;
+
     const supabaseAction = await createClient()
     
     const { data: { user } } = await supabaseAction.auth.getUser()
@@ -90,7 +109,7 @@ export default async function DashboardPage() {
     <main className="min-h-screen bg-[#0a0a0a] text-white p-8">
       {/* Top Nav */}
       <nav className="flex items-center justify-between bg-[#141414] border border-[#2a2a2a] rounded-full px-6 py-3 mb-10 max-w-6xl mx-auto shadow-lg">
-        <div className="font-bold text-lg tracking-tight">Rohtak Engine</div>
+        <div className="font-bold text-lg tracking-tight">{client.business_name}</div>
         <div className="flex gap-4">
           <button className="bg-white text-black px-4 py-1.5 rounded-full text-sm font-medium hover:bg-gray-200 transition">
             Dashboard
@@ -116,21 +135,21 @@ export default async function DashboardPage() {
         {/* Metric Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
           <div className="bg-[#141414] border border-[#2a2a2a] rounded-2xl p-6 shadow-xl">
-            <h3 className="text-gray-400 text-sm font-medium mb-1">Google Review Clicks</h3>
+            <h3 className="text-gray-400 text-sm font-medium mb-1">Google link clicks</h3>
             <div className="text-4xl font-bold text-white mt-2">
               {googleClicks ?? 0}
             </div>
           </div>
 
           <div className="bg-[#141414] border border-[#2a2a2a] rounded-2xl p-6 shadow-xl">
-            <h3 className="text-gray-400 text-sm font-medium mb-1">Private Messages</h3>
+            <h3 className="text-gray-400 text-sm font-medium mb-1">Private messages</h3>
             <div className="text-4xl font-bold text-white mt-2">
               {privateMessages ?? 0}
             </div>
           </div>
 
           <div className="bg-[#141414] border border-[#2a2a2a] rounded-2xl p-6 shadow-xl">
-            <h3 className="text-gray-400 text-sm font-medium mb-1">Landing Page Views</h3>
+            <h3 className="text-gray-400 text-sm font-medium mb-1">Landing page views</h3>
             <div className="text-4xl font-bold text-white mt-2">
               {landingViews ?? 0}
             </div>

@@ -1,27 +1,37 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { createClient } from '@supabase/supabase-js';
+import { createClient, User } from '@supabase/supabase-js';
 import * as dotenv from 'dotenv';
+import crypto from 'crypto';
 
 dotenv.config({ path: '.env.local' });
 
 // Setup clients
 // WARNING: These tests should be run against a dedicated staging or local Supabase instance.
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+const testSupabaseUrl = process.env.TEST_SUPABASE_URL || '';
+const testSupabaseAnonKey = process.env.TEST_SUPABASE_ANON_KEY || '';
+const testSupabaseServiceKey = process.env.TEST_SUPABASE_SERVICE_ROLE_KEY || '';
 
-const anonClient = createClient(supabaseUrl, supabaseAnonKey);
-const serviceClient = createClient(supabaseUrl, supabaseServiceKey);
+const isMissingConfig = !testSupabaseUrl || !testSupabaseAnonKey || !testSupabaseServiceKey;
+const isProdConfig = testSupabaseUrl === process.env.NEXT_PUBLIC_SUPABASE_URL;
 
-describe('Database Security & RLS Guarantees', () => {
+if (isProdConfig && !isMissingConfig) {
+  throw new Error("SECURITY FAULT: TEST_SUPABASE_URL must not equal NEXT_PUBLIC_SUPABASE_URL");
+}
+
+const suite = isMissingConfig ? describe.skip : describe;
+
+suite('Database Security & RLS Guarantees', () => {
+  const anonClient = createClient(testSupabaseUrl || 'http://dummy', testSupabaseAnonKey || 'dummy');
+  const serviceClient = createClient(testSupabaseUrl || 'http://dummy', testSupabaseServiceKey || 'dummy');
+
   it('prevents anonymous users from reading clients', async () => {
-    const { data, error } = await anonClient.from('clients').select('*');
+    const { error } = await anonClient.from('clients').select('*');
     expect(error).toBeDefined();
     expect(error?.code).toBe('42501');
   });
 
   it('prevents anonymous users from reading feedback', async () => {
-    const { data, error } = await anonClient.from('private_feedback').select('*');
+    const { error } = await anonClient.from('private_feedback').select('*');
     expect(error).toBeDefined();
     expect(error?.code).toBe('42501');
   });
@@ -32,7 +42,6 @@ describe('Database Security & RLS Guarantees', () => {
       feedback_text: 'Hack attempt',
       consent_given: true
     });
-    // RLS should reject this
     expect(error).toBeDefined();
     expect(error?.code).toBe('42501'); // insufficient_privilege
   });
@@ -51,20 +60,41 @@ describe('Database Security & RLS Guarantees', () => {
   });
 });
 
-describe('Rate Limiting & Concurrency', () => {
-  it('prevents concurrent submissions from bypassing the limit of 5', async () => {
-    // This tests the RPC function directly
-    const testIpHash = 'test-ip-hash-' + Date.now();
-    
-    // We need a valid client ID from the DB to test the foreign key constraint
-    // For a real integration test, we'd create one here.
-    const { data: clients } = await serviceClient.from('clients').select('id').limit(1);
-    if (!clients || clients.length === 0) {
-      throw new Error('No clients found in DB to test rate limit. Required fixture missing.');
-    }
-    const clientId = clients[0].id;
+suite('Rate Limiting & Concurrency', () => {
+  let testUser: User | null = null;
+  let clientId: string | null = null;
+  const serviceClient = createClient(testSupabaseUrl || 'http://dummy', testSupabaseServiceKey || 'dummy');
 
-    // Fire 10 requests concurrently
+  beforeAll(async () => {
+    const email = `test_user_${crypto.randomUUID()}@example.com`;
+    const { data } = await serviceClient.auth.admin.createUser({
+      email,
+      password: crypto.randomUUID(),
+      email_confirm: true
+    });
+    testUser = data.user;
+    if (testUser) {
+      const { data: client } = await serviceClient.from('clients').insert({
+        owner_user_id: testUser.id,
+        slug: `rate-limit-${crypto.randomUUID()}`,
+        business_name: 'Rate Limit Test',
+        google_review_link: 'https://g.page/r',
+        owner_email: testUser.email,
+        status: 'active'
+      }).select().single();
+      clientId = client?.id || null;
+    }
+  });
+
+  afterAll(async () => {
+    if (clientId) await serviceClient.from('clients').delete().eq('id', clientId);
+    if (testUser) await serviceClient.auth.admin.deleteUser(testUser.id);
+  });
+
+  it('prevents concurrent submissions from bypassing the limit of 5', async () => {
+    if (!clientId) throw new Error('Missing client');
+    const testIpHash = `test-ip-hash-${crypto.randomUUID()}`;
+    
     const promises = Array(10).fill(0).map(() => 
       serviceClient.rpc('submit_private_feedback_with_rate_limit', {
         p_client_id: clientId,
@@ -77,70 +107,65 @@ describe('Rate Limiting & Concurrency', () => {
     );
 
     const results = await Promise.all(promises);
-    
-    // Count successful submissions
     const successful = results.filter(r => r.data?.success === true);
     const failed = results.filter(r => r.data?.success === false && r.data?.error === 'Rate limit exceeded');
 
-    console.log("First result:", results[0]);
-    console.log("Successful count:", successful.length);
-    console.log("Failed count:", failed.length);
-
-    // Exactly 5 should succeed, no more, no less (if it's the first time for this IP)
+    // Exactly 5 should succeed, no more, no less
     expect(successful.length).toBeLessThanOrEqual(5);
     // At least 5 should be blocked by rate limit
     expect(failed.length).toBeGreaterThanOrEqual(5);
   });
 });
 
-describe('Multi-Tenant Isolation', () => {
-  let userA: any;
-  let userB: any;
-  let clientAId: string;
-  let clientBId: string;
+suite('Multi-Tenant Isolation', () => {
+  let userA: User | null = null;
+  let userB: User | null = null;
+  let clientAId: string | null = null;
+  let clientBId: string | null = null;
+  let passwordA = crypto.randomUUID();
+  const serviceClient = createClient(testSupabaseUrl || 'http://dummy', testSupabaseServiceKey || 'dummy');
 
   beforeAll(async () => {
-    // Create User A
     const { data: dataA } = await serviceClient.auth.admin.createUser({
-      email: `test_user_a_${Date.now()}@example.com`,
-      password: 'password123',
+      email: `a_${crypto.randomUUID()}@example.com`,
+      password: passwordA,
       email_confirm: true
     });
     userA = dataA.user;
 
-    // Create User B
     const { data: dataB } = await serviceClient.auth.admin.createUser({
-      email: `test_user_b_${Date.now()}@example.com`,
-      password: 'password123',
+      email: `b_${crypto.randomUUID()}@example.com`,
+      password: crypto.randomUUID(),
       email_confirm: true
     });
     userB = dataB.user;
 
-    // Create Client for A
-    const { data: clientA } = await serviceClient.from('clients').insert({
-      owner_user_id: userA.id,
-      slug: `client-a-${Date.now()}`,
-      business_name: 'Business A',
-      google_review_link: 'https://g.page/a',
-      owner_email: userA.email,
-      status: 'active'
-    }).select().single();
-    clientAId = clientA.id;
+    if (userA) {
+      const { data: clientA } = await serviceClient.from('clients').insert({
+        owner_user_id: userA.id,
+        slug: `a-${crypto.randomUUID()}`,
+        business_name: 'Business A',
+        google_review_link: 'https://g.page/a',
+        owner_email: userA.email,
+        status: 'active'
+      }).select().single();
+      clientAId = clientA?.id || null;
+    }
 
-    // Create Client for B
-    const { data: clientB } = await serviceClient.from('clients').insert({
-      owner_user_id: userB.id,
-      slug: `client-b-${Date.now()}`,
-      business_name: 'Business B',
-      google_review_link: 'https://g.page/b',
-      owner_email: userB.email,
-      status: 'active'
-    }).select().single();
-    clientBId = clientB.id;
+    if (userB) {
+      const { data: clientB } = await serviceClient.from('clients').insert({
+        owner_user_id: userB.id,
+        slug: `b-${crypto.randomUUID()}`,
+        business_name: 'Business B',
+        google_review_link: 'https://g.page/b',
+        owner_email: userB.email,
+        status: 'active'
+      }).select().single();
+      clientBId = clientB?.id || null;
+    }
   });
 
   afterAll(async () => {
-    // Clean up
     if (clientAId) await serviceClient.from('clients').delete().eq('id', clientAId);
     if (clientBId) await serviceClient.from('clients').delete().eq('id', clientBId);
     if (userA) await serviceClient.auth.admin.deleteUser(userA.id);
@@ -148,10 +173,12 @@ describe('Multi-Tenant Isolation', () => {
   });
 
   it('prevents Owner A from accessing Owner B data', async () => {
-    const authClientA = createClient(supabaseUrl, supabaseAnonKey);
+    if (!userA || !userB || !clientAId || !clientBId) throw new Error('Missing test data');
+
+    const authClientA = createClient(testSupabaseUrl, testSupabaseAnonKey);
     const { error: signInErr } = await authClientA.auth.signInWithPassword({ 
-      email: userA.email, 
-      password: 'password123' 
+      email: userA.email || '', 
+      password: passwordA 
     });
     expect(signInErr).toBeNull();
 

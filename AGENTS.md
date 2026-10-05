@@ -39,6 +39,8 @@ and safety matter more than speed or polish.
 - Check client status (trial/active, not lapsed/paused) in every
   public route and every write.
 - Consent must come from a real user action, never hardcoded.
+- Never use customer data for marketing; any feature that does needs a privacy-page update and my approval first.
+- Never run tests against a real database; tests use TEST_* variables only.
 
 ## Extra rules
 - Never open, read or print .env, .env.local or any real env file. Only

@@ -14,7 +14,7 @@ export default function PrivacyPage() {
 
           <section>
             <h2 className="text-lg font-medium text-gray-900 mb-2">What we collect</h2>
-            <p>If you choose to send a private message, we collect the feedback text you provide, along with your name and phone number (if you choose to provide them). We also log anonymous interaction events (like scanning the QR code or clicking a button) to generate basic analytics.</p>
+            <p>If you choose to send a private message, we collect the feedback text you provide, along with your name and phone number (if you choose to provide them). We also log anonymous interaction events (like scanning the QR code or clicking a button) to generate basic analytics. To limit spam, we keep a keyed (HMAC) hash of the visitor&apos;s IP address for up to one day. It is never stored with your message and cannot be used to identify you.</p>
           </section>
 
           <section>

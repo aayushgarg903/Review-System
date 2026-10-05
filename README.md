@@ -3,8 +3,8 @@
 This is a multi-tenant web application designed for local businesses to seamlessly collect private feedback and public Google reviews without violating Google's review policies.
 
 ## Stack
-- Next.js 14+ (App Router)
-- React & Tailwind CSS
+- Next.js 16 (App Router)
+- React 18 & Tailwind CSS
 - TypeScript (Strict)
 - Supabase (PostgreSQL)
 
@@ -22,17 +22,15 @@ This is a multi-tenant web application designed for local businesses to seamless
 
 3. Supabase Setup:
    - Create a new project in Supabase.
-   - Go to the SQL Editor and run the contents of `supabase/schema.sql` to build the tables and RLS policies.
+   - `schema.sql` is the source of truth for a fresh database. Run the contents of `supabase/schema.sql` to build the tables and RLS policies.
    - REQUIRED before launch: the privacy page promises 18-month deletion. Enable `pg_cron` (Database > Extensions) and run the `pg_cron` schedule block at the bottom of the schema file to enable automatic deletion of old feedback and rate limits.
 
 ## Migrations
-If you are updating an existing database, run the files inside `supabase/migrations/` in numerical order, once, in the Supabase SQL editor.
+If you are updating an existing database, run migrations in order:
+1. `supabase/migrations/001_event_types.sql`
+2. `supabase/migrations/002_rate_limit.sql`
 
-4. Cloudflare Turnstile Test Keys (for local development):
-   - Site Key: `1x00000000000000000000AA`
-   - Secret Key: `1x0000000000000000000000000000000AA`
-
-5. Start the development server:
+4. Start the development server:
    ```bash
    npm run dev
    ```
@@ -40,11 +38,25 @@ If you are updating an existing database, run the files inside `supabase/migrati
 ## Environment Variables
 Ensure the following variables are configured in `.env.local`:
 - `NEXT_PUBLIC_SUPABASE_URL`: Your Supabase project URL
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY`: Supabase anonymous key
 - `SUPABASE_SERVICE_ROLE_KEY`: Supabase service role key (Never expose this to the browser)
-- `TURNSTILE_SITE_KEY`: Cloudflare Turnstile public site key
+- `NEXT_PUBLIC_TURNSTILE_SITE_KEY`: Cloudflare Turnstile public site key
 - `TURNSTILE_SECRET_KEY`: Cloudflare Turnstile secret key (for server verification)
 - `RESEND_API_KEY`: API key for Resend email notifications
-- `EMAIL_FROM`: The sender email address. Must be an address on a domain you have verified in Resend.
+- `RESEND_FROM_EMAIL`: The sender email address. Must be an address on a domain you have verified in Resend.
+- `SITE_URL`: The production URL of the site
+
+## Supabase Production Launch (Manual Steps)
+1. Enable `pg_cron` in Supabase (Database > Extensions).
+2. Schedule the purge jobs by running the `pg_cron` block at the bottom of `schema.sql`.
+3. Run migrations (if not a fresh database).
+4. Delete test users/data.
+5. Turn off open public signups in Supabase Auth (Authentication > Providers > Email > uncheck "Enable Signup").
+6. Verify the Resend domain for sending emails.
+
+## Scripts
+- **Create User:** `node scripts/create-user.js <email> <password> <client_slug>`
+  - Pass the exact positional arguments shown above. Do not hardcode credentials in this script.
 
 ## Architecture Notes
 This project strictly enforces that **anonymous visitors never write to the database directly from the browser**. All writes are routed through Next.js server actions or API routes, verified by Turnstile, and executed using the Supabase Service Role key to bypass RLS for inserts, while maintaining strict isolation for owner reads.

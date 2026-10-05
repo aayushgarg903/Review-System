@@ -107,7 +107,7 @@ export async function submitFeedback(formData: FormData) {
   });
 
   if (rpcErr) {
-    console.error(`DB RPC failed. Code: ${rpcErr?.code || "unknown"} Message: ${rpcErr?.message}`);
+    console.error(`DB RPC failed. Code: ${rpcErr?.code || "unknown"}`);
     return { error: "Failed to process request." };
   }
 

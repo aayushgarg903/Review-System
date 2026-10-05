@@ -27,10 +27,13 @@ export default async function PrivateFeedbackPage({ params }: { params: Promise<
   }
 
   // Record analytics event: someone opened the private form
-  await supabase.from("analytics_events").insert({
+  const { error: analyticsErr } = await supabase.from("analytics_events").insert({
     client_id: client.id,
     event_type: "private_form_open"
   });
+  if (analyticsErr) {
+    console.error(`Analytics insert failed. Code: ${analyticsErr.code || "unknown"}`);
+  }
 
   return (
     <main className="min-h-screen flex flex-col items-center p-6 bg-gray-50">

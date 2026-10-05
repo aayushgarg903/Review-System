@@ -15,8 +15,8 @@ export async function login(formData: FormData) {
   const { error } = await supabase.auth.signInWithPassword(data)
 
   if (error) {
-    // Return the error to the form to be displayed
-    return { error: error.message }
+    // Return a generic error message
+    return { error: 'Invalid email or password.' }
   }
 
   revalidatePath('/admin', 'layout')

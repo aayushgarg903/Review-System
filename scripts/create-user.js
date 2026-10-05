@@ -9,9 +9,10 @@ const supabase = createClient(
 async function createAdminUser() {
   const email = process.env.TEST_USER_EMAIL || process.argv[2];
   const password = process.env.TEST_USER_PASSWORD || process.argv[3];
+  const slug = process.argv[4];
   
-  if (!email || !password) {
-    console.error('Usage: node create-user.js <email> <password> OR set TEST_USER_EMAIL and TEST_USER_PASSWORD env vars');
+  if (!email || !password || !slug) {
+    console.error('Usage: node create-user.js <email> <password> <client_slug>');
     process.exit(1);
   }
 
@@ -34,17 +35,16 @@ async function createAdminUser() {
   if (testUser) {
     console.log('User created! ID:', testUser.id);
     
-    // Update the test-cafe client to be owned by this user
-    console.log('Linking to test-cafe business...');
+    console.log(`Linking to ${slug} business...`);
     const { error: updateError } = await supabase
       .from('clients')
       .update({ owner_user_id: testUser.id })
-      .eq('slug', 'test-cafe');
+      .eq('slug', slug);
       
     if (updateError) {
       console.error('Error linking client:', updateError.message);
     } else {
-      console.log(`Successfully linked test-cafe to ${email}!`);
+      console.log(`Successfully linked ${slug} to ${email}!`);
     }
   }
 }

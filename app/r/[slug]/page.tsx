@@ -26,11 +26,14 @@ export default async function FeedbackPage({ params }: { params: Promise<{ slug:
     );
   }
 
-  // Analytics: Record qr_scan securely
-  await supabase.from("analytics_events").insert({
+  // Analytics: Record landing_page_view securely
+  const { error: analyticsErr } = await supabase.from("analytics_events").insert({
     client_id: client.id,
     event_type: "landing_page_view"
   });
+  if (analyticsErr) {
+    console.error(`Analytics insert failed. Code: ${analyticsErr.code || "unknown"}`);
+  }
 
   return (
     <main className="min-h-screen flex flex-col items-center p-6 bg-gray-50">

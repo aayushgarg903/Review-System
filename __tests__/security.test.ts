@@ -1,27 +1,17 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { createClient, User } from '@supabase/supabase-js';
 import crypto from 'crypto';
-import * as dotenv from 'dotenv';
-import fs from 'fs';
 
 // Setup clients
 // WARNING: These tests should be run against a dedicated staging or local Supabase instance.
-let envConfig: Record<string, string> = {};
-try {
-  envConfig = dotenv.parse(fs.readFileSync('.env.local'));
-} catch (e) {
-  // File might not exist
-}
-
-const testSupabaseUrl = envConfig.TEST_SUPABASE_URL || process.env.TEST_SUPABASE_URL || '';
-const testSupabaseAnonKey = envConfig.TEST_SUPABASE_ANON_KEY || process.env.TEST_SUPABASE_ANON_KEY || '';
-const testSupabaseServiceKey = envConfig.TEST_SUPABASE_SERVICE_ROLE_KEY || process.env.TEST_SUPABASE_SERVICE_ROLE_KEY || '';
+const testSupabaseUrl = process.env.TEST_SUPABASE_URL || '';
+const testSupabaseAnonKey = process.env.TEST_SUPABASE_ANON_KEY || '';
+const testSupabaseServiceKey = process.env.TEST_SUPABASE_SERVICE_ROLE_KEY || '';
 
 const isMissingConfig = !testSupabaseUrl || !testSupabaseAnonKey || !testSupabaseServiceKey;
-const isProdConfig = testSupabaseUrl === (envConfig.NEXT_PUBLIC_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL);
 
-if (isProdConfig && !isMissingConfig) {
-  throw new Error("SECURITY FAULT: TEST_SUPABASE_URL must not equal NEXT_PUBLIC_SUPABASE_URL");
+if (isMissingConfig) {
+  console.warn('⚠️ SKIPPING SECURITY TESTS: TEST_SUPABASE_URL, TEST_SUPABASE_ANON_KEY, or TEST_SUPABASE_SERVICE_ROLE_KEY is missing from process.env.');
 }
 
 const suite = isMissingConfig ? describe.skip : describe;

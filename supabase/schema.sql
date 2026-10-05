@@ -88,6 +88,8 @@ create policy "owner updates own feedback" on private_feedback
                         where c.id = private_feedback.client_id
                           and c.owner_user_id = auth.uid()));
 
+revoke insert, delete on clients, private_feedback, analytics_events from authenticated;
+revoke update on clients, analytics_events from authenticated;
 revoke update on private_feedback from authenticated;
 grant  update (status, owner_note, resolved_at) on private_feedback to authenticated;
 

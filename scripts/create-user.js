@@ -7,10 +7,18 @@ const supabase = createClient(
 );
 
 async function createAdminUser() {
+  const email = process.env.TEST_USER_EMAIL || process.argv[2];
+  const password = process.env.TEST_USER_PASSWORD || process.argv[3];
+  
+  if (!email || !password) {
+    console.error('Usage: node create-user.js <email> <password> OR set TEST_USER_EMAIL and TEST_USER_PASSWORD env vars');
+    process.exit(1);
+  }
+
   console.log('Creating user...');
   const { data: user, error: userError } = await supabase.auth.admin.createUser({
-    email: 'test@example.com',
-    password: 'password123',
+    email,
+    password,
     email_confirm: true
   });
 
@@ -21,7 +29,7 @@ async function createAdminUser() {
   
   // Get the user ID
   const { data: { users } } = await supabase.auth.admin.listUsers();
-  const testUser = users.find(u => u.email === 'test@example.com');
+  const testUser = users.find(u => u.email === email);
 
   if (testUser) {
     console.log('User created! ID:', testUser.id);
@@ -36,7 +44,7 @@ async function createAdminUser() {
     if (updateError) {
       console.error('Error linking client:', updateError.message);
     } else {
-      console.log('Successfully linked test-cafe to test@example.com!');
+      console.log(`Successfully linked test-cafe to ${email}!`);
     }
   }
 }

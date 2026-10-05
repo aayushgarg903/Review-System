@@ -1,8 +1,11 @@
 CREATE TABLE IF NOT EXISTS rate_limits (
-    ip_hash VARCHAR(64) PRIMARY KEY,
+    client_ip_hash VARCHAR(64) PRIMARY KEY,
     submissions INT NOT NULL DEFAULT 1,
     last_submission TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+ALTER TABLE rate_limits ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON rate_limits FROM anon, authenticated;
 
 -- Drop the old column from private_feedback
 ALTER TABLE private_feedback DROP COLUMN IF EXISTS ip_hash;
@@ -13,10 +16,10 @@ CREATE OR REPLACE FUNCTION submit_private_feedback_with_rate_limit(
     p_customer_phone VARCHAR,
     p_feedback_text TEXT,
     p_consent_given BOOLEAN,
-    p_ip_hash VARCHAR(64)
+    p_client_ip_hash VARCHAR(64)
 ) RETURNS jsonb
 LANGUAGE plpgsql
-SECURITY DEFINER
+SECURITY DEFINER SET search_path = public
 AS $$
 DECLARE
     v_inserted_id UUID;
@@ -24,12 +27,12 @@ DECLARE
     v_last_submission TIMESTAMPTZ;
 BEGIN
     -- Advisory lock to prevent race conditions during rate limit check
-    PERFORM pg_advisory_xact_lock(hashtext(p_ip_hash));
+    PERFORM pg_advisory_xact_lock(hashtext(p_client_ip_hash));
 
     -- Check rate limit
     SELECT submissions, last_submission INTO v_submissions, v_last_submission 
     FROM rate_limits 
-    WHERE ip_hash = p_ip_hash 
+    WHERE client_ip_hash = p_client_ip_hash 
     FOR UPDATE;
 
     IF FOUND THEN
@@ -44,9 +47,9 @@ BEGIN
             RETURN jsonb_build_object('success', false, 'error', 'Rate limit exceeded');
         END IF;
 
-        UPDATE rate_limits SET submissions = v_submissions, last_submission = now() WHERE ip_hash = p_ip_hash;
+        UPDATE rate_limits SET submissions = v_submissions, last_submission = now() WHERE client_ip_hash = p_client_ip_hash;
     ELSE
-        INSERT INTO rate_limits (ip_hash, submissions) VALUES (p_ip_hash, 1);
+        INSERT INTO rate_limits (client_ip_hash, submissions) VALUES (p_client_ip_hash, 1);
     END IF;
 
     -- Insert feedback (no IP stored here!)
@@ -57,3 +60,8 @@ BEGIN
     RETURN jsonb_build_object('success', true, 'id', v_inserted_id);
 END;
 $$;
+
+REVOKE ALL ON FUNCTION public.submit_private_feedback_with_rate_limit(uuid, varchar, varchar, text, boolean, varchar) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.submit_private_feedback_with_rate_limit(uuid, varchar, varchar, text, boolean, varchar) FROM anon;
+REVOKE ALL ON FUNCTION public.submit_private_feedback_with_rate_limit(uuid, varchar, varchar, text, boolean, varchar) FROM authenticated;
+GRANT EXECUTE ON FUNCTION public.submit_private_feedback_with_rate_limit(uuid, varchar, varchar, text, boolean, varchar) TO service_role;

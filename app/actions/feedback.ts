@@ -88,10 +88,13 @@ export async function submitFeedback(formData: FormData) {
   const realIp = headersList.get("x-real-ip")?.trim();
   const ip = realIp || forwardedFor || "unknown";
   
-  // Use a keyed HMAC instead of plain SHA-256 to prevent rainbow-table attacks
-  // Fallback to a random string if secret is missing to fail safely
-  const rateLimitSecret = process.env.TURNSTILE_SECRET_KEY || "fallback_secret";
-  const ipHash = crypto.createHmac("sha256", rateLimitSecret).update(ip).digest("hex");
+  // Hash the combination of client.id and IP so rate limiting is tenant-scoped
+  const rateLimitSecret = process.env.TURNSTILE_SECRET_KEY;
+  if (!rateLimitSecret) {
+    console.error("Critical: TURNSTILE_SECRET_KEY is missing.");
+    return { error: "Failed to process request due to server configuration error." };
+  }
+  const clientIpHash = crypto.createHmac("sha256", rateLimitSecret).update(client.id + ":" + ip).digest("hex");
 
   // Call the atomic rate-limiting and insert RPC
   const { data: rpcData, error: rpcErr } = await supabase.rpc("submit_private_feedback_with_rate_limit", {
@@ -100,7 +103,7 @@ export async function submitFeedback(formData: FormData) {
     p_customer_phone: customerPhone || null,
     p_feedback_text: feedbackText,
     p_consent_given: true,
-    p_ip_hash: ipHash
+    p_client_ip_hash: clientIpHash
   });
 
   if (rpcErr) {

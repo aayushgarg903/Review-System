@@ -62,7 +62,27 @@ export default async function DashboardPage() {
     const { data: { user } } = await supabaseAction.auth.getUser()
     if (!user) return
 
-    await supabaseAction.from('private_feedback').update({ status }).eq('id', id)
+    const updateData: any = { status }
+    if (status === 'resolved') {
+      updateData.resolved_at = new Date().toISOString()
+    } else {
+      updateData.resolved_at = null
+    }
+
+    await supabaseAction.from('private_feedback').update(updateData).eq('id', id)
+    revalidatePath('/admin/dashboard')
+  }
+
+  async function updateFeedbackNote(formData: FormData) {
+    'use server'
+    const id = formData.get('id') as string
+    const owner_note = formData.get('owner_note') as string
+    const supabaseAction = await createClient()
+    
+    const { data: { user } } = await supabaseAction.auth.getUser()
+    if (!user) return
+
+    await supabaseAction.from('private_feedback').update({ owner_note }).eq('id', id)
     revalidatePath('/admin/dashboard')
   }
 
@@ -133,8 +153,27 @@ export default async function DashboardPage() {
                       <span className="font-medium text-white">{feedback.customer_name || 'Anonymous'}</span>
                       <span className="text-gray-500 text-sm">{feedback.customer_phone}</span>
                       <span className="text-gray-600 text-xs">• {new Date(feedback.created_at).toLocaleDateString()}</span>
+                      {feedback.resolved_at && (
+                        <span className="bg-green-500/20 text-green-400 text-xs px-2 py-0.5 rounded-full border border-green-500/30">
+                          Resolved {new Date(feedback.resolved_at).toLocaleDateString()}
+                        </span>
+                      )}
                     </div>
                     <p className="text-gray-300 text-sm leading-relaxed mb-4">&quot;{feedback.feedback_text}&quot;</p>
+                    
+                    <form action={updateFeedbackNote} className="flex gap-2">
+                      <input type="hidden" name="id" value={feedback.id} />
+                      <input 
+                        type="text" 
+                        name="owner_note"
+                        defaultValue={feedback.owner_note || ''}
+                        placeholder="Add a private note..."
+                        className="flex-1 bg-[#0a0a0a] border border-[#2a2a2a] text-sm rounded-lg px-3 py-1.5 text-gray-300 focus:outline-none focus:border-blue-500 placeholder-gray-600"
+                      />
+                      <button type="submit" className="bg-[#2a2a2a] hover:bg-[#3a3a3a] text-xs py-1.5 px-4 rounded-lg text-gray-300 transition-colors">
+                        Save
+                      </button>
+                    </form>
                   </div>
                   
                   <div className="w-full md:w-48 flex flex-col gap-2">

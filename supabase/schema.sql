@@ -41,7 +41,6 @@ create table private_feedback (
     delete_after   timestamptz not null default (now() + interval '18 months'),
     email_sent     boolean not null default false,
     consent_version varchar(20) not null default 'v1',
-    ip_hash        varchar(64),
     created_at     timestamptz not null default now()
 );
 
@@ -104,18 +103,21 @@ create policy "owner reads own analytics" on analytics_events
 -- ---------- retention: delete expired feedback ----------
 -- STEP 1: Enable pg_cron (Database > Extensions).
 -- STEP 2: Run once in the SQL editor:
--- create extension if not exists pg_cron;
--- select cron.schedule('purge-feedback', '0 3 * * *',
---   $$ delete from private_feedback where delete_after < now() $$);
--- select cron.schedule('purge-rate-limits', '0 3 * * *',
---   $$ delete from rate_limits where last_submission < now() - interval '1 day' $$);
+create extension if not exists pg_cron;
+select cron.schedule('purge-feedback', '0 3 * * *',
+  $$ delete from private_feedback where delete_after < now() $$);
+select cron.schedule('purge-rate-limits', '0 3 * * *',
+  $$ delete from rate_limits where last_submission < now() - interval '1 day' $$);
 
 -- ---------- atomic rate limiting & insert ----------
 CREATE TABLE IF NOT EXISTS rate_limits (
-    ip_hash VARCHAR(64) PRIMARY KEY,
+    client_ip_hash VARCHAR(64) PRIMARY KEY,
     submissions INT NOT NULL DEFAULT 1,
     last_submission TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+ALTER TABLE rate_limits ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON rate_limits FROM anon, authenticated;
 
 CREATE OR REPLACE FUNCTION submit_private_feedback_with_rate_limit(
     p_client_id UUID,
@@ -123,21 +125,21 @@ CREATE OR REPLACE FUNCTION submit_private_feedback_with_rate_limit(
     p_customer_phone VARCHAR,
     p_feedback_text TEXT,
     p_consent_given BOOLEAN,
-    p_ip_hash VARCHAR(64)
+    p_client_ip_hash VARCHAR(64)
 ) RETURNS jsonb
 LANGUAGE plpgsql
-SECURITY DEFINER
+SECURITY DEFINER SET search_path = public
 AS $$
 DECLARE
     v_inserted_id UUID;
     v_submissions INT;
     v_last_submission TIMESTAMPTZ;
 BEGIN
-    PERFORM pg_advisory_xact_lock(hashtext(p_ip_hash));
+    PERFORM pg_advisory_xact_lock(hashtext(p_client_ip_hash));
 
     SELECT submissions, last_submission INTO v_submissions, v_last_submission 
     FROM rate_limits 
-    WHERE ip_hash = p_ip_hash 
+    WHERE client_ip_hash = p_client_ip_hash 
     FOR UPDATE;
 
     IF FOUND THEN
@@ -151,9 +153,9 @@ BEGIN
             RETURN jsonb_build_object('success', false, 'error', 'Rate limit exceeded');
         END IF;
 
-        UPDATE rate_limits SET submissions = v_submissions, last_submission = now() WHERE ip_hash = p_ip_hash;
+        UPDATE rate_limits SET submissions = v_submissions, last_submission = now() WHERE client_ip_hash = p_client_ip_hash;
     ELSE
-        INSERT INTO rate_limits (ip_hash, submissions) VALUES (p_ip_hash, 1);
+        INSERT INTO rate_limits (client_ip_hash, submissions) VALUES (p_client_ip_hash, 1);
     END IF;
 
     INSERT INTO private_feedback (client_id, customer_name, customer_phone, feedback_text, consent_given)
@@ -163,3 +165,8 @@ BEGIN
     RETURN jsonb_build_object('success', true, 'id', v_inserted_id);
 END;
 $$;
+
+REVOKE ALL ON FUNCTION public.submit_private_feedback_with_rate_limit(uuid, varchar, varchar, text, boolean, varchar) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.submit_private_feedback_with_rate_limit(uuid, varchar, varchar, text, boolean, varchar) FROM anon;
+REVOKE ALL ON FUNCTION public.submit_private_feedback_with_rate_limit(uuid, varchar, varchar, text, boolean, varchar) FROM authenticated;
+GRANT EXECUTE ON FUNCTION public.submit_private_feedback_with_rate_limit(uuid, varchar, varchar, text, boolean, varchar) TO service_role;

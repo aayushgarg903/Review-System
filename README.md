@@ -44,6 +44,7 @@ Ensure the following variables are configured in `.env.local`:
 - `TURNSTILE_SECRET_KEY`: Cloudflare Turnstile secret key (for server verification)
 - `RESEND_API_KEY`: API key for Resend email notifications
 - `EMAIL_FROM`: The sender email address. Must be an address on a domain you have verified in Resend.
+- `IP_HASH_SECRET`: Any long random string (32+ chars) used to hash visitor IPs for rate limiting.
 
 ## Supabase Production Launch (Manual Steps)
 1. Enable `pg_cron` in Supabase (Database > Extensions).
@@ -53,6 +54,9 @@ Ensure the following variables are configured in `.env.local`:
 5. Turn off open public signups in Supabase Auth (Authentication > Providers > Email > uncheck "Enable Signup").
 6. Verify the Resend domain for sending emails.
 
+## Backups
+Supabase free plan has no automatic backups; use a paid plan or export regularly before holding real data.
+
 ## Scripts
 - **Create User:** `node scripts/create-user.js <email> <client_slug>`
   - The script will securely prompt for the password (hidden input) or read it from `TEST_USER_PASSWORD`. Do not hardcode credentials in this script.
@@ -61,7 +65,7 @@ Ensure the following variables are configured in `.env.local`:
 This project strictly enforces that **anonymous visitors never write to the database directly from the browser**. All writes are routed through Next.js server actions or API routes, verified by Turnstile, and executed using the Supabase Service Role key to bypass RLS for inserts, while maintaining strict isolation for owner reads.
 
 **Security:**
-- Rate limiting is implemented by storing requests in a dedicated `rate_limits` table with a composite primary key (`client_id` + `ip_hash`). The `ip_hash` is generated using an HMAC-SHA256 hash of the `x-real-ip` keyed with the `TURNSTILE_SECRET_KEY`. This ensures tenant-scoped limits and prevents IP data from being stored directly or leaked in rainbow-table attacks.
+- Rate limiting is implemented by storing requests in a dedicated `rate_limits` table with a composite primary key (`client_id` + `ip_hash`). The `ip_hash` is generated using an HMAC-SHA256 hash of the `x-real-ip` keyed with the `IP_HASH_SECRET`. This ensures tenant-scoped limits and prevents IP data from being stored directly or leaked in rainbow-table attacks.
 - All real data is scoped tightly using Postgres RLS and verified through Supabase Auth for dashboard access.
 
 ## Next.js 16 Notes

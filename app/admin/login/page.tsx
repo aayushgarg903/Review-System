@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { login } from './actions'
+import { SITE_CONFIG } from '@/lib/site-config'
 
 export default function LoginPage() {
   const [error, setError] = useState<string | null>(null)
@@ -89,9 +90,11 @@ export default function LoginPage() {
         </div>
 
         {/* Footer text */}
-        <p className="text-center text-xs text-gray-500 mt-6">
-          Powered by The Rohtak Reputation Engine
-        </p>
+        {SITE_CONFIG.operatorName !== 'REPLACE_ME' && (
+          <p className="text-center text-xs text-gray-500 mt-6">
+            Powered by {SITE_CONFIG.operatorName}
+          </p>
+        )}
       </div>
     </main>
   )

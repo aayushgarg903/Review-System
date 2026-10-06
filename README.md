@@ -55,8 +55,8 @@ Ensure the following variables are configured in `.env.local`:
 6. Verify the Resend domain for sending emails.
 
 ## Scripts
-- **Create User:** `node scripts/create-user.js <email> <password> <client_slug>`
-  - Pass the exact positional arguments shown above. Do not hardcode credentials in this script.
+- **Create User:** `node scripts/create-user.js <email> <client_slug>`
+  - The script will securely prompt for the password (hidden input) or read it from `TEST_USER_PASSWORD`. Do not hardcode credentials in this script.
 
 ## Architecture Notes
 This project strictly enforces that **anonymous visitors never write to the database directly from the browser**. All writes are routed through Next.js server actions or API routes, verified by Turnstile, and executed using the Supabase Service Role key to bypass RLS for inserts, while maintaining strict isolation for owner reads.

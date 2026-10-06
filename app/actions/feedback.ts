@@ -86,12 +86,16 @@ export async function submitFeedback(formData: FormData) {
   const headersList = await headers();
   const forwardedFor = headersList.get("x-forwarded-for")?.split(",")[0]?.trim();
   const realIp = headersList.get("x-real-ip")?.trim();
-  const ip = realIp || forwardedFor || "unknown";
+  let ip = realIp || forwardedFor;
+  if (!ip) {
+    console.warn("IP header missing. Using random value for rate limiting to prevent global lockout.");
+    ip = crypto.randomBytes(16).toString("hex");
+  }
   
   // Hash the IP using a secret key
-  const rateLimitSecret = process.env.TURNSTILE_SECRET_KEY;
+  const rateLimitSecret = process.env.IP_HASH_SECRET;
   if (!rateLimitSecret) {
-    console.error("Critical: TURNSTILE_SECRET_KEY is missing.");
+    console.error("Critical: IP_HASH_SECRET is missing.");
     return { error: "Failed to process request due to server configuration error." };
   }
   const ipHash = crypto.createHmac("sha256", rateLimitSecret).update(ip).digest("hex");

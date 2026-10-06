@@ -40,11 +40,10 @@ Ensure the following variables are configured in `.env.local`:
 - `NEXT_PUBLIC_SUPABASE_URL`: Your Supabase project URL
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY`: Supabase anonymous key
 - `SUPABASE_SERVICE_ROLE_KEY`: Supabase service role key (Never expose this to the browser)
-- `NEXT_PUBLIC_TURNSTILE_SITE_KEY`: Cloudflare Turnstile public site key
+- `TURNSTILE_SITE_KEY`: Cloudflare Turnstile public site key
 - `TURNSTILE_SECRET_KEY`: Cloudflare Turnstile secret key (for server verification)
 - `RESEND_API_KEY`: API key for Resend email notifications
 - `EMAIL_FROM`: The sender email address. Must be an address on a domain you have verified in Resend.
-- `SITE_URL`: The production URL of the site
 
 ## Supabase Production Launch (Manual Steps)
 1. Enable `pg_cron` in Supabase (Database > Extensions).

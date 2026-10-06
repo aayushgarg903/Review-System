@@ -175,6 +175,16 @@ suite('Multi-Tenant Isolation', () => {
   it('prevents Owner A from accessing Owner B data', async () => {
     if (!userA || !userB || !clientAId || !clientBId) throw new Error('Missing test data');
 
+    // Seed some feedback for Owner B to verify it remains unchanged
+    const { data: originalBFeedback } = await serviceClient.from('private_feedback').insert({
+      client_id: clientBId,
+      feedback_text: 'Original B feedback',
+      consent_given: true,
+      status: 'unresolved'
+    }).select().single();
+
+    if (!originalBFeedback) throw new Error('Failed to seed Owner B feedback');
+
     const authClientA = createClient(testSupabaseUrl, testSupabaseAnonKey);
     const { error: signInErr } = await authClientA.auth.signInWithPassword({ 
       email: userA.email || '', 
@@ -207,8 +217,12 @@ suite('Multi-Tenant Isolation', () => {
       .update({ status: 'resolved' })
       .eq('client_id', clientBId);
 
-    // In Postgres, if a row is filtered by RLS, update returns success but affects 0 rows
-    expect(updateErr).toBeNull();
+    // A secure denial is either an explicit permission error (42501) or 0 rows affected (RLS)
+    if (updateErr) {
+      expect(updateErr.code).toBe('42501');
+    } else {
+      expect(updateErr).toBeNull();
+    }
 
     // Attempt to delete Owner B's feedback
     const { error: deleteErr } = await authClientA
@@ -216,7 +230,22 @@ suite('Multi-Tenant Isolation', () => {
       .delete()
       .eq('client_id', clientBId);
 
-    // In Postgres, if a row is filtered by RLS, DELETE returns success but affects 0 rows
-    expect(deleteErr).toBeNull();
+    // A secure denial is either an explicit permission error (42501) or 0 rows affected (RLS)
+    if (deleteErr) {
+      expect(deleteErr.code).toBe('42501');
+    } else {
+      expect(deleteErr).toBeNull();
+    }
+
+    // Verify Owner B's original feedback data remains completely unchanged
+    const { data: verifyBFeedback, error: verifyErr } = await serviceClient
+      .from('private_feedback')
+      .select('*')
+      .eq('id', originalBFeedback.id)
+      .single();
+
+    expect(verifyErr).toBeNull();
+    expect(verifyBFeedback?.status).toBe('unresolved');
+    expect(verifyBFeedback?.feedback_text).toBe('Original B feedback');
   });
 });

@@ -18,13 +18,18 @@ The relationship is entirely stateless and URL-driven:
 - Multiple physical cards can be printed with the exact same QR code pointing to the same business. The card itself has no database identity.
 
 ## QR Code Generation
-Currently, the project does **NOT** contain a QR-code generation dependency. 
-To adhere to the principle of "do not add dependencies unless actually required", we will not install one right now.
+We generate high-quality QR codes locally using a dedicated script that outputs SVG (for printing) and PNG (1200px) formats.
 
-**The smallest safe implementation:**
-Since physical cards are printed assets, the QR code generation should ultimately yield a high-quality printable asset (e.g., SVG or high-res PNG). 
-- In the future, this can be done client-side in the admin dashboard (e.g., using a lightweight library like `qrcode` or `react-qr-code`) so the owner can download it.
-- Alternatively, we can use a reliable external API (like `api.qrserver.com`) to display it without adding bundle weight, or simply provide the URL to the business owner to use with their preferred printing vendor.
+**Usage:**
+```bash
+npm run qr <slug>
+```
+*(Requires `SITE_URL` to be set in the environment).*
+
+**Critical Rules:**
+- **Never change a slug or domain after printing**: The physical card relies entirely on the generated URL. If the slug or domain changes, the printed cards instantly break and cannot be updated.
+- **Print the short URL under the QR code**: Always include the plain text URL (e.g., `https://<domain>/r/<slug>`) below the QR code so users who cannot scan the code can still type it manually.
+
 
 ## Physical Card Specifications
 

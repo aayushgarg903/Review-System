@@ -43,7 +43,7 @@ Ensure the following variables are configured in `.env.local`:
 - `NEXT_PUBLIC_TURNSTILE_SITE_KEY`: Cloudflare Turnstile public site key
 - `TURNSTILE_SECRET_KEY`: Cloudflare Turnstile secret key (for server verification)
 - `RESEND_API_KEY`: API key for Resend email notifications
-- `RESEND_FROM_EMAIL`: The sender email address. Must be an address on a domain you have verified in Resend.
+- `EMAIL_FROM`: The sender email address. Must be an address on a domain you have verified in Resend.
 - `SITE_URL`: The production URL of the site
 
 ## Supabase Production Launch (Manual Steps)

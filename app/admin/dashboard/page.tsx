@@ -14,9 +14,10 @@ export default async function DashboardPage() {
   // Fetch the business details for this user
   const { data: client, error } = await supabase
     .from('clients')
-    .select('*')
+    .select('id, business_name')
     .eq('owner_user_id', user.id)
-    .single()
+    .limit(1)
+    .maybeSingle()
 
   if (!client) {
     return (
@@ -83,14 +84,18 @@ export default async function DashboardPage() {
       updateData.resolved_at = null
     }
 
-    await supabaseAction.from('private_feedback').update(updateData).eq('id', id)
+    const { error } = await supabaseAction.from('private_feedback').update(updateData).eq('id', id)
+    if (error) {
+      console.error(error.code)
+    }
     revalidatePath('/admin/dashboard')
   }
 
   async function updateFeedbackNote(formData: FormData) {
     'use server'
     const id = formData.get('id') as string
-    const owner_note = formData.get('owner_note') as string
+    const rawNote = formData.get('owner_note') as string
+    const owner_note = rawNote ? rawNote.slice(0, 1000) : ''
 
     // Validate UUID
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -101,7 +106,10 @@ export default async function DashboardPage() {
     const { data: { user } } = await supabaseAction.auth.getUser()
     if (!user) return
 
-    await supabaseAction.from('private_feedback').update({ owner_note }).eq('id', id)
+    const { error } = await supabaseAction.from('private_feedback').update({ owner_note }).eq('id', id)
+    if (error) {
+      console.error(error.code)
+    }
     revalidatePath('/admin/dashboard')
   }
 
@@ -130,7 +138,7 @@ export default async function DashboardPage() {
         <h1 className="text-3xl font-semibold tracking-tight mb-2">
           Welcome back, {client.business_name}
         </h1>
-        <p className="text-gray-400 mb-8">Here is your actual feedback and activity data.</p>
+        <p className="text-gray-400 mb-8">Here is your actual feedback and activity data (Last 30 days).</p>
         
         {/* Metric Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">

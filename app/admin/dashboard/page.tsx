@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
+import { SITE_CONFIG } from '@/lib/site-config'
 
 export default async function DashboardPage() {
   const supabase = await createClient()
@@ -22,7 +23,7 @@ export default async function DashboardPage() {
   if (!client) {
     return (
       <main className="min-h-screen bg-[#0a0a0a] text-white p-8 flex items-center justify-center">
-        <p>No business found for this account. Please contact support.</p>
+        <p>No business found for this account. {SITE_CONFIG.contactEmail !== 'REPLACE_ME' ? `Please contact ${SITE_CONFIG.contactEmail}` : 'Please contact the service provider.'}</p>
       </main>
     )
   }

@@ -70,5 +70,16 @@ This project strictly enforces that **anonymous visitors never write to the data
 - ESLint configuration now uses the flat config format (`eslint.config.mjs`).
 
 ## Testing
-**CRITICAL:** You must use a dedicated, separate Supabase project for running security tests. NEVER run the test suite against your production database, as tests may wipe data or alter schemas.
-Provide your test project credentials in `.env.local` using the `TEST_SUPABASE_URL`, `TEST_SUPABASE_ANON_KEY`, and `TEST_SUPABASE_SERVICE_ROLE_KEY` variables.
+**CRITICAL:** You must use a dedicated, separate Supabase project for running security tests. NEVER run the test suite against your production database, as tests may wipe data or alter schemas. NEVER put test keys next to production keys in `.env.local`.
+
+Tests read `TEST_*` variables from the shell environment, NOT from `.env.local`. 
+
+To run tests on Windows PowerShell:
+```powershell
+$env:TEST_SUPABASE_URL="..."; $env:TEST_SUPABASE_ANON_KEY="..."; $env:TEST_SUPABASE_SERVICE_ROLE_KEY="..."; npm test
+```
+
+Afterward, clear them:
+```powershell
+Remove-Item Env:TEST_*
+```

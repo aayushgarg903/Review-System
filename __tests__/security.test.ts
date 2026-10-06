@@ -10,6 +10,10 @@ const testSupabaseServiceKey = process.env.TEST_SUPABASE_SERVICE_ROLE_KEY || '';
 
 const isMissingConfig = !testSupabaseUrl || !testSupabaseAnonKey || !testSupabaseServiceKey;
 
+if (testSupabaseUrl && process.env.NEXT_PUBLIC_SUPABASE_URL && testSupabaseUrl === process.env.NEXT_PUBLIC_SUPABASE_URL) {
+  throw new Error('SECURITY HALT: TEST_SUPABASE_URL equals NEXT_PUBLIC_SUPABASE_URL. Do not run tests against production.');
+}
+
 if (isMissingConfig) {
   console.warn('⚠️ SKIPPING SECURITY TESTS: TEST_SUPABASE_URL, TEST_SUPABASE_ANON_KEY, or TEST_SUPABASE_SERVICE_ROLE_KEY is missing from process.env.');
 }

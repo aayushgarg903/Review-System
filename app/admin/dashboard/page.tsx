@@ -20,10 +20,14 @@ export default async function DashboardPage() {
     .limit(1)
     .maybeSingle()
 
+  if (error) {
+    console.error('Error fetching client details:', error.message)
+  }
+
   if (!client) {
     return (
-      <main className="min-h-screen bg-[#0a0a0a] text-white p-8 flex items-center justify-center">
-        <p>No business found for this account. {SITE_CONFIG.contactEmail !== 'REPLACE_ME' ? `Please contact ${SITE_CONFIG.contactEmail}` : 'Please contact the service provider.'}</p>
+      <main className="min-h-screen bg-[#F9F8F6] text-[#1C1917] p-8 flex items-center justify-center font-sans selection:bg-[#0A3622] selection:text-white">
+        <p className="text-[#57534E] font-medium">No business found for this account. {SITE_CONFIG.contactEmail !== 'REPLACE_ME' ? `Please contact ${SITE_CONFIG.contactEmail}` : 'Please contact the service provider.'}</p>
       </main>
     )
   }
@@ -115,19 +119,19 @@ export default async function DashboardPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#0a0a0a] text-white p-8">
+    <main className="min-h-screen bg-[#F9F8F6] text-[#1C1917] p-6 md:p-10 font-sans selection:bg-[#0A3622] selection:text-white">
       {/* Top Nav */}
-      <nav className="flex items-center justify-between bg-[#141414] border border-[#2a2a2a] rounded-full px-6 py-3 mb-10 max-w-6xl mx-auto shadow-lg">
-        <div className="font-bold text-lg tracking-tight">{client.business_name}</div>
+      <nav className="flex items-center justify-between bg-white border border-[#EAE8E3] rounded-full px-6 py-3 mb-12 max-w-[1000px] mx-auto shadow-sm">
+        <div className="font-semibold text-[17px] tracking-tight text-[#1C1917]">{client.business_name}</div>
         <div className="flex gap-4">
-          <button className="bg-white text-black px-4 py-1.5 rounded-full text-sm font-medium hover:bg-gray-200 transition">
+          <button className="bg-[#0A3622] text-[#F9F8F6] px-5 py-2 rounded-full text-[14px] font-medium hover:bg-[#062416] transition-all shadow-sm hover:shadow-md hover:-translate-y-[1px]">
             Dashboard
           </button>
         </div>
-        <div className="flex items-center gap-4">
-          <div className="text-gray-400 text-sm">{user.email}</div>
+        <div className="flex items-center gap-4 hidden sm:flex">
+          <div className="text-[#57534E] text-[14px] font-medium">{user.email}</div>
           <form action={logout}>
-            <button type="submit" className="text-gray-400 hover:text-white text-sm font-medium transition">
+            <button type="submit" className="text-[#A8A29E] hover:text-[#1C1917] text-[14px] font-medium transition-colors">
               Logout
             </button>
           </form>
@@ -135,88 +139,91 @@ export default async function DashboardPage() {
       </nav>
 
       {/* Main Content */}
-      <div className="max-w-6xl mx-auto">
-        <h1 className="text-3xl font-semibold tracking-tight mb-2">
-          Welcome back, {client.business_name}
-        </h1>
-        <p className="text-gray-400 mb-8">Here is your actual feedback and activity data (Last 30 days).</p>
+      <div className="max-w-[1000px] mx-auto">
+        <div className="mb-12 flex flex-col gap-1.5">
+          <h1 className="text-[32px] font-semibold tracking-tight text-[#1C1917]">
+            Welcome back, {client.business_name}
+          </h1>
+          <p className="text-[#57534E] text-[16px] font-medium">Here is your actual feedback and activity data (Last 30 days).</p>
+        </div>
         
         {/* Metric Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
-          <div className="bg-[#141414] border border-[#2a2a2a] rounded-2xl p-6 shadow-xl">
-            <h3 className="text-gray-400 text-sm font-medium mb-1">Google link clicks</h3>
-            <div className="text-4xl font-bold text-white mt-2">
-              {googleClicks ?? 0}
-            </div>
-          </div>
-
-          <div className="bg-[#141414] border border-[#2a2a2a] rounded-2xl p-6 shadow-xl">
-            <h3 className="text-gray-400 text-sm font-medium mb-1">Private messages</h3>
-            <div className="text-4xl font-bold text-white mt-2">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 mb-16">
+          <div className="bg-[#0A3622] rounded-3xl p-7 shadow-[0_8px_30px_rgba(10,54,34,0.15)] transition-all hover:shadow-[0_12px_40px_rgba(10,54,34,0.2)] hover:-translate-y-1 relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -mr-10 -mt-10 pointer-events-none"></div>
+            <h3 className="text-[#EAE8E3] text-[14px] font-medium mb-3 relative z-10">Private messages</h3>
+            <div className="text-[44px] font-bold text-white tracking-tight leading-none relative z-10">
               {privateMessages ?? 0}
             </div>
           </div>
 
-          <div className="bg-[#141414] border border-[#2a2a2a] rounded-2xl p-6 shadow-xl">
-            <h3 className="text-gray-400 text-sm font-medium mb-1">Landing page views</h3>
-            <div className="text-4xl font-bold text-white mt-2">
+          <div className="bg-white border border-[#EAE8E3] rounded-3xl p-7 shadow-[0_4px_24px_rgba(0,0,0,0.02)] transition-all hover:shadow-[0_8px_32px_rgba(0,0,0,0.04)] hover:-translate-y-1">
+            <h3 className="text-[#57534E] text-[14px] font-medium mb-3">Google link clicks</h3>
+            <div className="text-[44px] font-bold text-[#1C1917] tracking-tight leading-none">
+              {googleClicks ?? 0}
+            </div>
+          </div>
+
+          <div className="bg-white border border-[#EAE8E3] rounded-3xl p-7 shadow-[0_4px_24px_rgba(0,0,0,0.02)] transition-all hover:shadow-[0_8px_32px_rgba(0,0,0,0.04)] hover:-translate-y-1">
+            <h3 className="text-[#57534E] text-[14px] font-medium mb-3">Landing page views</h3>
+            <div className="text-[44px] font-bold text-[#1C1917] tracking-tight leading-none">
               {landingViews ?? 0}
             </div>
           </div>
         </div>
 
         {/* Feedback List */}
-        <h2 className="text-xl font-semibold tracking-tight mb-4">Customer Feedback</h2>
-        <div className="bg-[#141414] border border-[#2a2a2a] rounded-2xl overflow-hidden shadow-xl">
+        <h2 className="text-[22px] font-semibold tracking-tight mb-5 text-[#1C1917]">Customer Feedback</h2>
+        <div className="bg-white border border-[#EAE8E3] rounded-3xl overflow-hidden shadow-[0_4px_24px_rgba(0,0,0,0.02)]">
           {(!feedbackList || feedbackList.length === 0) ? (
-            <div className="p-8 text-center text-gray-500">
+            <div className="p-16 text-center text-[#A8A29E] font-medium text-[15px]">
               No private feedback received yet.
             </div>
           ) : (
-            <div className="divide-y divide-[#2a2a2a]">
+            <div className="divide-y divide-[#EAE8E3]">
               {feedbackList.map((feedback) => (
-                <div key={feedback.id} className="p-6 flex flex-col md:flex-row gap-6 hover:bg-[#1a1a1a] transition-colors">
+                <div key={feedback.id} className="p-6 sm:p-7 flex flex-col md:flex-row gap-6 hover:bg-[#faf9f7] transition-colors">
                   <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-2">
-                      <span className="font-medium text-white">{feedback.customer_name || 'Anonymous'}</span>
-                      <span className="text-gray-500 text-sm">{feedback.customer_phone}</span>
-                      <span className="text-gray-600 text-xs">• {new Date(feedback.created_at).toLocaleDateString()}</span>
+                    <div className="flex items-center flex-wrap gap-2.5 mb-2">
+                      <span className="font-semibold text-[#1C1917] text-[15px]">{feedback.customer_name || 'Anonymous'}</span>
+                      {feedback.customer_phone && <span className="text-[#57534E] text-[13px] font-medium bg-[#F9F8F6] px-2 py-0.5 rounded-md border border-[#EAE8E3]">{feedback.customer_phone}</span>}
+                      <span className="text-[#A8A29E] text-[13px] font-medium">• {new Date(feedback.created_at).toLocaleDateString()}</span>
                       {feedback.resolved_at && (
-                        <span className="bg-green-500/20 text-green-400 text-xs px-2 py-0.5 rounded-full border border-green-500/30">
+                        <span className="bg-[#E6F4EA] text-[#0A3622] text-[12px] font-medium px-2.5 py-0.5 rounded-md border border-[#C3E6CB] ml-1">
                           Resolved {new Date(feedback.resolved_at).toLocaleDateString()}
                         </span>
                       )}
                     </div>
-                    <p className="text-gray-300 text-sm leading-relaxed mb-4">&quot;{feedback.feedback_text}&quot;</p>
+                    <p className="text-[#404040] text-[15px] leading-relaxed mb-4 font-medium">&quot;{feedback.feedback_text}&quot;</p>
                     
-                    <form action={updateFeedbackNote} className="flex gap-2">
+                    <form action={updateFeedbackNote} className="flex gap-2 w-full max-w-sm mt-3">
                       <input type="hidden" name="id" value={feedback.id} />
                       <input 
                         type="text" 
                         name="owner_note"
                         defaultValue={feedback.owner_note || ''}
                         placeholder="Add a private note..."
-                        className="flex-1 bg-[#0a0a0a] border border-[#2a2a2a] text-sm rounded-lg px-3 py-1.5 text-gray-300 focus:outline-none focus:border-blue-500 placeholder-gray-600"
+                        className="flex-1 bg-[#F9F8F6] border border-[#EAE8E3] text-[13px] rounded-lg px-3 py-2 text-[#57534E] focus:outline-none focus:border-[#0A3622] focus:ring-1 focus:ring-[#0A3622] placeholder-[#A8A29E] shadow-sm transition-all"
                       />
-                      <button type="submit" className="bg-[#2a2a2a] hover:bg-[#3a3a3a] text-xs py-1.5 px-4 rounded-lg text-gray-300 transition-colors">
+                      <button type="submit" className="bg-white border border-[#EAE8E3] hover:bg-[#F9F8F6] text-[#57534E] hover:text-[#1C1917] text-[13px] font-medium py-2 px-4 rounded-lg transition-all shadow-sm">
                         Save
                       </button>
                     </form>
                   </div>
                   
-                  <div className="w-full md:w-48 flex flex-col gap-2">
+                  <div className="w-full md:w-48 flex flex-col gap-2 pt-1">
                     <form action={updateFeedbackStatus} className="flex flex-col gap-2">
                       <input type="hidden" name="id" value={feedback.id} />
                       <select 
                         name="status"
                         defaultValue={feedback.status}
-                        className="bg-[#0a0a0a] border border-[#2a2a2a] text-sm rounded-lg px-3 py-2 text-gray-300 focus:outline-none focus:border-blue-500"
+                        className="bg-[#F9F8F6] border border-[#EAE8E3] text-[13px] font-semibold rounded-lg px-3 py-2.5 text-[#1C1917] focus:outline-none focus:border-[#0A3622] focus:ring-1 focus:ring-[#0A3622] shadow-sm appearance-none cursor-pointer"
                       >
                         <option value="unresolved">🔴 Unresolved</option>
                         <option value="in_progress">🟡 In Progress</option>
                         <option value="resolved">🟢 Resolved</option>
                       </select>
-                      <button type="submit" className="bg-[#2a2a2a] hover:bg-[#3a3a3a] text-xs py-1.5 px-3 rounded text-gray-300 transition-colors">
+                      <button type="submit" className="bg-white border border-[#EAE8E3] hover:bg-[#F9F8F6] text-[#57534E] hover:text-[#1C1917] text-[13px] font-medium py-2 px-4 rounded-lg transition-all shadow-sm">
                         Update Status
                       </button>
                     </form>

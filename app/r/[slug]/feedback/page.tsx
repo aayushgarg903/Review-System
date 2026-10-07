@@ -18,8 +18,8 @@ export default async function PrivateFeedbackPage({ params }: { params: Promise<
 
   if (error || !isClientActive(client)) {
     return (
-      <main className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
-        <p className="text-gray-500 text-center text-sm">
+      <main className="min-h-screen flex items-center justify-center bg-[#F9F8F6] p-4 font-sans">
+        <p className="text-[#57534E] text-center text-sm">
           This page is temporarily unavailable
         </p>
       </main>
@@ -36,8 +36,8 @@ export default async function PrivateFeedbackPage({ params }: { params: Promise<
   }
 
   return (
-    <main className="min-h-screen flex flex-col items-center p-6 bg-gray-50">
-      <div className="w-full max-w-[360px] bg-white shadow-sm rounded-xl p-6 flex flex-col items-center gap-6 mt-6">
+    <main className="min-h-screen flex flex-col items-center p-6 bg-[#F9F8F6] font-sans selection:bg-[#0A3622] selection:text-white">
+      <div className="w-full max-w-[400px] bg-white shadow-[0_4px_24px_rgba(0,0,0,0.02)] border border-[#EAE8E3] rounded-3xl p-8 flex flex-col items-center gap-6 mt-6 transition-all hover:shadow-[0_8px_32px_rgba(0,0,0,0.04)]">
         
         {client.logo_url && (
           <>
@@ -45,16 +45,16 @@ export default async function PrivateFeedbackPage({ params }: { params: Promise<
             <img 
               src={client.logo_url} 
               alt={`${client.business_name} logo`} 
-              className="w-16 h-16 object-contain rounded-full bg-gray-100"
+              className="w-16 h-16 object-contain rounded-full bg-white border border-[#EAE8E3] shadow-sm p-1"
             />
           </>
         )}
         
-        <div className="text-center w-full">
-          <h1 className="text-lg font-semibold text-gray-900 leading-tight">
+        <div className="text-center w-full flex flex-col gap-1">
+          <h1 className="text-xl font-semibold text-[#1C1917] leading-tight tracking-tight">
             Private Message
           </h1>
-          <p className="text-gray-500 text-xs mt-1">
+          <p className="text-[#57534E] text-[13px] font-medium">
             To the management of {client.business_name}
           </p>
         </div>
